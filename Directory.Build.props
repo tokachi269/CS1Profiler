@@ -1,0 +1,31 @@
+<Project>
+  
+  <PropertyGroup>
+    <!-- Steam インストールパス (通常のパターンを試行) -->
+    <!-- 環境変数 STEAM_PATH が設定されている場合は優先 -->
+    <SteamPath Condition="'$(STEAM_PATH)' != ''">$(STEAM_PATH)</SteamPath>
+    
+    <!-- 標準的なSteamインストール場所を順番に確認 -->
+    <SteamPath Condition="'$(SteamPath)' == '' And Exists('C:\Program Files (x86)\SteamLibrary')">C:\Program Files (x86)\SteamLibrary</SteamPath>
+    <SteamPath Condition="'$(SteamPath)' == '' And Exists('C:\Program Files (x86)\Steam')">C:\Program Files (x86)\Steam</SteamPath>
+    <SteamPath Condition="'$(SteamPath)' == '' And Exists('C:\Program Files\Steam')">C:\Program Files\Steam</SteamPath>
+    <SteamPath Condition="'$(SteamPath)' == '' And Exists('$(LOCALAPPDATA)\Steam')">$(LOCALAPPDATA)\Steam</SteamPath>
+    
+    <!-- デフォルトフォールバック -->
+    <SteamPath Condition="'$(SteamPath)' == ''">C:\Program Files (x86)\SteamLibrary</SteamPath>
+    
+    <!-- Cities Skylinesの場所を確認 -->
+    <CitiesSkylinesPath>$(SteamPath)\steamapps\common\Cities_Skylines</CitiesSkylinesPath>
+  </PropertyGroup>
+
+  <!-- ビルド時にパス確認メッセージ -->
+  <Target Name="CheckPaths" BeforeTargets="Build">
+    <Message Text="Steam Path: $(SteamPath)" Importance="high" />
+    <Message Text="Cities Skylines Path: $(CitiesSkylinesPath)" Importance="high" />
+    
+    <!-- 重要なファイルの存在確認 -->
+    <Error Condition="!Exists('$(CitiesSkylinesPath)\Cities_Data\Managed\ICities.dll')" 
+           Text="ICities.dll not found at $(CitiesSkylinesPath)\Cities_Data\Managed\ICities.dll. Please check Steam installation path." />
+  </Target>
+
+</Project>
