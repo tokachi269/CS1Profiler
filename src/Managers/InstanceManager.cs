@@ -86,7 +86,7 @@ namespace CS1Profiler
             try
             {
                 Debug.Log("[InstanceManager] Unpatching Harmony...");
-                Patcher.UnpatchAll();
+                CS1Profiler.Harmony.Patcher.UnpatchAll();
             }
             catch (Exception e)
             {
@@ -109,3 +109,4 @@ namespace CS1Profiler
         }
     }
 }
+

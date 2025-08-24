@@ -1,0 +1,127 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Reflection;
+
+namespace CS1Profiler.Profiling
+{
+    /// <summary>
+    /// 軽量なメソッド実行時間測定 - 高速配列ベース
+    /// </summary>
+    public static class PerformanceProfiler
+    {
+        // 軽量測定システム用の配列ベースストレージ
+        private const int MAX_METHODS = 8192; // サイズ削減
+        private const int SAMPLE_INTERVAL = 10; // 10回に1回サンプリング
+        
+        private static long[] _totalNs = new long[MAX_METHODS];
+        private static int[] _callCounts = new int[MAX_METHODS];
+        private static long[] _maxNs = new long[MAX_METHODS];
+        private static string[] _methodNames = new string[MAX_METHODS];
+        private static string[] _assemblyNames = new string[MAX_METHODS];
+        private static int _nextMethodId = 0;
+        private static Dictionary<MethodBase, int> _methodIds = new Dictionary<MethodBase, int>();
+        
+        // ThreadStatic TSCタイマー
+        [ThreadStatic]
+        private static long _tscStart;
+        [ThreadStatic]
+        private static int _currentMethodId;
+        [ThreadStatic]
+        private static int _sampleCounter;
+        
+        public static void MethodStart(MethodBase method)
+        {
+            if (method == null || _nextMethodId >= MAX_METHODS) return;
+            
+            // サンプリング制御
+            if (++_sampleCounter % SAMPLE_INTERVAL != 0) return;
+            
+            // メソッドID取得または割り当て
+            if (!_methodIds.TryGetValue(method, out _currentMethodId))
+            {
+                _currentMethodId = _nextMethodId++;
+                if (_currentMethodId >= MAX_METHODS) return;
+                
+                _methodIds[method] = _currentMethodId;
+                _methodNames[_currentMethodId] = method.DeclaringType?.Name + "." + method.Name;
+                _assemblyNames[_currentMethodId] = method.DeclaringType?.Assembly.GetName().Name ?? "Unknown";
+            }
+            
+            _tscStart = Stopwatch.GetTimestamp();
+        }
+        
+        public static void MethodEnd()
+        {
+            if (_currentMethodId <= 0 || _currentMethodId >= MAX_METHODS) return;
+            
+            long elapsed = Stopwatch.GetTimestamp() - _tscStart;
+            long elapsedNs = elapsed * 1000000000L / Stopwatch.Frequency;
+            
+            _totalNs[_currentMethodId] += elapsedNs;
+            _callCounts[_currentMethodId]++;
+            if (elapsedNs > _maxNs[_currentMethodId])
+                _maxNs[_currentMethodId] = elapsedNs;
+        }
+
+        // Harmonyパッチからの呼び出し用オーバーロード
+        public static void MethodEnd(MethodBase method)
+        {
+            MethodEnd(); // 既存のロジックを使用
+        }
+        
+        public static List<ProfileData> GetTopMethods(int count = 10)
+        {
+            var results = new List<ProfileData>();
+            
+            for (int i = 1; i < _nextMethodId && i < MAX_METHODS; i++)
+            {
+                if (_callCounts[i] > 0)
+                {
+                    results.Add(new ProfileData
+                    {
+                        MethodName = _methodNames[i],
+                        AssemblyName = _assemblyNames[i],
+                        TotalMilliseconds = _totalNs[i] / 1000000.0,
+                        AverageMilliseconds = _totalNs[i] / 1000000.0 / _callCounts[i],
+                        MaxMilliseconds = _maxNs[i] / 1000000.0,
+                        CallCount = _callCounts[i]
+                    });
+                }
+            }
+            
+            results.Sort((a, b) => b.TotalMilliseconds.CompareTo(a.TotalMilliseconds));
+            return results.GetRange(0, Math.Min(count, results.Count));
+        }
+        
+        public static Dictionary<string, double> GetDetailedStats()
+        {
+            var stats = new Dictionary<string, double>();
+            
+            for (int i = 0; i < _nextMethodId; i++)
+            {
+                if (_callCounts[i] > 0 && _methodNames[i] != null)
+                {
+                    double avgMs = _totalNs[i] / 1000000.0 / _callCounts[i];
+                    stats[_methodNames[i]] = avgMs;
+                }
+            }
+            
+            return stats;
+        }
+        
+        public static void Reset()
+        {
+            for (int i = 0; i < MAX_METHODS; i++)
+            {
+                _totalNs[i] = 0;
+                _callCounts[i] = 0;
+                _maxNs[i] = 0;
+                _methodNames[i] = null;
+                _assemblyNames[i] = null;
+            }
+            _nextMethodId = 0;
+            _methodIds.Clear();
+        }
+    }
+}

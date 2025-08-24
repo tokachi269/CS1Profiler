@@ -25,23 +25,26 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- フォルダ分けしたソースファイル群 -->
-    <!-- Core: メインのMODクラスと共通定義 -->
+    <!-- 軽量プロファイリングシステム -->
+    <!-- Core: 共通定義 -->
     <Compile Include="src\Core\Common.cs" />
     <Compile Include="src\UserMod.cs" />
-    <Compile Include="src\Core\PerformanceMonitor.cs" />
-    <Compile Include="src\Core\InstanceManager.cs" />
-    <!-- Managers: 各種管理クラス -->
+    <!-- Managers: 管理クラス -->
     <Compile Include="src\Managers\ProfilerManager.cs" />
     <Compile Include="src\Managers\CSVManager.cs" />
-    <Compile Include="src\Managers\PerformanceProfiler.cs" />
+    <Compile Include="src\Managers\InstanceManager.cs" />
     <!-- Profiling: 性能測定関連 -->
     <Compile Include="src\Profiling\MethodProfiler.cs" />
-    <!-- UI: ユーザーインターフェース関連 -->
-    <Compile Include="src\UI\UI.cs" />
-    <Compile Include="src\UI\PerformancePanel.cs" />
+    <Compile Include="src\Profiling\PerformanceProfiler.cs" />
+    <Compile Include="src\Profiling\SpikeDetector.cs" />
+    <Compile Include="src\Profiling\MethodPatcher.cs" />
+    <Compile Include="src\Profiling\ProfileData.cs" />
     <!-- Harmony: パッチとフック処理 -->
     <Compile Include="src\Harmony\HarmonyPatches.cs" />
+    <Compile Include="src\Harmony\LogSuppressionHooks.cs" />
+    <!-- UI: ユーザーインターフェイス -->
+    <Compile Include="src\UI\PerformancePanel.cs" />
+    <Compile Include="src\UI\UIManager.cs" />
   </ItemGroup>
 
   <ItemGroup>

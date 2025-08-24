@@ -1,5 +1,3 @@
-// Cities: Skylines (CS1) 用：CSV出力管理クラス
-
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,7 +6,7 @@ using UnityEngine;
 namespace CS1Profiler.Managers
 {
     /// <summary>
-    /// CSV出力管理クラス（インスタンス対応）
+    /// CSV出力管理クラス（軽量版）
     /// </summary>
     public class CSVManager
     {
@@ -22,33 +20,25 @@ namespace CS1Profiler.Managers
             
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Starting CSV initialization for startup analysis...");
+                Debug.Log("[CS1Profiler] Starting CSV initialization...");
                 
-                // 出力ファイルパス: Cities Skylinesゲームインストールディレクトリ/CS1Profiler_startup_YYYYMMDD_HHMMSS.csv
-                string gameDirectory = UnityEngine.Application.dataPath;
-                
-                // Unity Editorの場合はAssetsフォルダを含むが、実行時は実際のゲームディレクトリ
-                // Cities: Skylinesの場合、dataPathは "CitiesSkylines_Data" フォルダを指すので、親ディレクトリを取得
+                string gameDirectory = Application.dataPath;
                 if (gameDirectory.EndsWith("_Data"))
                 {
                     gameDirectory = Directory.GetParent(gameDirectory).FullName;
                 }
                 
-                UnityEngine.Debug.Log("[CS1Profiler] Game directory detected: " + gameDirectory);
-                
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                _csvFilePath = gameDirectory + "\\CS1Profiler_startup_" + timestamp + ".csv";
+                _csvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_{timestamp}.csv");
                 
-                // CSVヘッダーをバッファに追加（起動解析用フォーマット）
                 _csvBuffer.Add("DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description");
                 
                 _csvInitialized = true;
-                UnityEngine.Debug.Log("[CS1Profiler] Startup analysis CSV initialized: " + _csvFilePath);
+                Debug.Log($"[CS1Profiler] CSV initialized: {_csvFilePath}");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] CSV initialization failed: " + e.Message);
-                UnityEngine.Debug.LogError("[CS1Profiler] Stack trace: " + e.StackTrace);
+                Debug.LogError($"[CS1Profiler] CSV initialization failed: {e.Message}");
                 _csvInitialized = false;
             }
         }
@@ -61,20 +51,16 @@ namespace CS1Profiler.Managers
                 if (!_csvInitialized) return;
                 
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                int frame = UnityEngine.Time.frameCount;
+                int frame = Time.frameCount;
                 
-                // メモリMBが指定されていない場合は現在のメモリ使用量を取得
                 if (memoryMB <= 0)
                 {
                     memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
                 }
                 
-                string csvLine = string.Format("{0},{1},{2},{3},{4:F3},{5},{6:F2},{7},{8}",
-                    timestamp, frame, category, eventType, durationMs, count, memoryMB, rank, description);
-                
+                string csvLine = $"{timestamp},{frame},{category},{eventType},{durationMs:F12},{count},{memoryMB:F2},{rank},{description}";
                 _csvBuffer.Add(csvLine);
                 
-                // バッファが大きくなりすぎた場合は即座にファイルに書き込み
                 if (_csvBuffer.Count > 50)
                 {
                     FlushCsvBuffer();
@@ -82,47 +68,7 @@ namespace CS1Profiler.Managers
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] CSV queue error: " + e.Message);
-            }
-        }
-
-        /// <summary>
-        /// パフォーマンスデータ専用のCSV出力
-        /// </summary>
-        public void QueuePerformanceData(PerformanceProfiler.PerformanceData data)
-        {
-            try
-            {
-                if (!_csvInitialized) Initialize();
-                if (!_csvInitialized) return;
-
-                string timestamp = data.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff");
-                float fps = data.FrameTime > 0 ? 1000f / data.FrameTime : 0f;
-
-                // パフォーマンスデータのCSV行
-                string csvLine = string.Format("{0},{1},Performance,FrameData,{2:F3},{3},{4:F2},0,FPS:{5:F1}|DrawCalls:{6}|Triangles:{7}|GPU:{8:F1}MB|{9}",
-                    timestamp,
-                    data.FrameCount,
-                    data.FrameTime,
-                    data.DrawCalls,
-                    data.UsedMemory / 1024.0 / 1024.0,
-                    fps,
-                    data.DrawCalls,
-                    data.Triangles,
-                    data.GPUMemoryMB,
-                    data.GPUName);
-
-                _csvBuffer.Add(csvLine);
-
-                // 定期的にフラッシュ（パフォーマンスデータは頻繁なので）
-                if (_csvBuffer.Count > 20)
-                {
-                    FlushCsvBuffer();
-                }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] Performance CSV queue error: " + e.Message);
+                Debug.LogError($"[CS1Profiler] CSV queue error: {e.Message}");
             }
         }
 
@@ -132,78 +78,88 @@ namespace CS1Profiler.Managers
             
             try
             {
-                // .NET 3.5互換：usingを避けて明示的にDisposeを呼ぶ
-                StreamWriter writer = null;
-                try
+                using (var writer = new StreamWriter(_csvFilePath, true))
                 {
-                    writer = new StreamWriter(_csvFilePath, true);
                     foreach (string line in _csvBuffer)
                     {
                         writer.WriteLine(line);
-                    }
-                    writer.Flush();
-                }
-                finally
-                {
-                    if (writer != null)
-                    {
-                        writer.Close();
-                        writer = null;
                     }
                 }
                 _csvBuffer.Clear();
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] CSV flush error: " + e.Message);
+                Debug.LogError($"[CS1Profiler] CSV flush error: {e.Message}");
             }
         }
 
         public string GetCsvFilePath()
         {
-            try
-            {
-                if (!_csvInitialized) Initialize();
-                return _csvFilePath ?? "CSV not initialized";
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] GetCsvFilePath error: " + e.Message);
-                return "CSV error: " + e.Message;
-            }
+            return _csvFilePath ?? "CSV not initialized";
+        }
+
+        public string GetCsvPath()
+        {
+            return _csvFilePath ?? "CS1Profiler_Unknown.csv";
         }
 
         public void Cleanup()
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] CSV cleanup starting...");
-                
-                // 残っているバッファがあれば安全に処理
-                if (_csvBuffer != null && _csvBuffer.Count > 0)
+                if (_csvBuffer.Count > 0)
                 {
-                    UnityEngine.Debug.Log("[CS1Profiler] Flushing remaining " + _csvBuffer.Count + " CSV entries...");
-                    
-                    // 最終セッション記録を追加
-                    _csvBuffer.Add(string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8}",
-                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"),
-                        UnityEngine.Time.frameCount,
-                        "System", "ProfilingEnd", 0, 0, 0, 0, "SESSION_END"));
-                    
-                    // 最終書き込み実行
+                    _csvBuffer.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{Time.frameCount},System,ProfilingEnd,0,0,0,0,SESSION_END");
                     FlushCsvBuffer();
                 }
-                
-                // 初期化フラグを最後にfalseにして新しい書き込みを防止
                 _csvInitialized = false;
-                
-                UnityEngine.Debug.Log("[CS1Profiler] CSV output closed safely: " + (_csvFilePath ?? "null"));
+                Debug.Log("[CS1Profiler] CSV cleanup completed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] CSV cleanup error: " + e.Message);
-                UnityEngine.Debug.LogError("[CS1Profiler] CSV cleanup stack trace: " + e.StackTrace);
+                Debug.LogError($"[CS1Profiler] CSV cleanup error: {e.Message}");
             }
+        }
+
+        public void LogCurrentStats()
+        {
+            try
+            {
+                Debug.Log("[CS1Profiler] === Current Performance Stats ===");
+                var stats = CS1Profiler.Profiling.PerformanceProfiler.GetTopMethods(10);
+                foreach (var stat in stats)
+                {
+                    Debug.Log($"[CS1Profiler] {stat.MethodName}: {stat.AverageMilliseconds:F3}ms avg ({stat.CallCount} calls)");
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] LogCurrentStats error: {e.Message}");
+            }
+        }
+
+        public void ExportToCSV()
+        {
+            try
+            {
+                var stats = CS1Profiler.Profiling.PerformanceProfiler.GetTopMethods(100);
+                foreach (var stat in stats)
+                {
+                    QueueCsvWrite("Performance", "Method", stat.AverageMilliseconds, stat.CallCount, 0, 0, stat.MethodName);
+                }
+                FlushCsvBuffer();
+                Debug.Log($"[CS1Profiler] Exported {stats.Count} method stats to CSV");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] ExportToCSV error: {e.Message}");
+            }
+        }
+        
+        // 旧PerformanceProfiler互換性メソッド
+        public void QueuePerformanceData(object data)
+        {
+            Debug.Log("[CS1Profiler] QueuePerformanceData called but disabled for lightweight profiling");
         }
     }
 }

@@ -6,11 +6,13 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CS1Profiler.Managers;
+using CS1Profiler.Harmony;
+using CS1Profiler.UI;
 
 namespace CS1Profiler
 {
     /// <summary>
-    /// Cities Skylines MOD メインクラス - ProfilerManager分離版
+    /// Cities Skylines MOD メインクラス - 統合プロファイリングシステム
     /// </summary>
     public class Mod : LoadingExtensionBase, IUserMod
     {
@@ -18,11 +20,12 @@ namespace CS1Profiler
         private GameObject _profilerManagerObject;
         private const string ProfilerManagerName = "CS1ProfilerManager";
         
-        // 新しい性能分析システム
-        private static PerformanceProfiler performanceProfiler;
+        // 性能分析システム
         private static PerformancePanel performancePanel;
         private static GameObject performanceMonitorObject;
         private static bool performanceSystemInitialized = false;
+        
+
         
         // 起動時解析用の追加フィールド
         private static DateTime _gameStartTime = DateTime.MinValue;
@@ -32,6 +35,7 @@ namespace CS1Profiler
         // CSV出力タイマー
         private static DateTime _lastCsvOutput = DateTime.MinValue;
         private const int CSV_OUTPUT_INTERVAL_SECONDS = 30; // 30秒間隔でCSV出力
+        private static bool _csvAutoOutputEnabled = true; // CSV自動出力のデフォルトはON
 
         // IUserMod必須プロパティ
         public string Name 
@@ -56,12 +60,15 @@ namespace CS1Profiler
                 LogStartupEvent("MOD_ENABLED", "CS1Profiler mod enabled and startup analysis started");
             }
             
+            // Harmonyパッチを初期化
+            Hooks.Initialize();
+            
             InitializeProfilerManager();
             InitializePerformanceSystem();
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnEnabled COMPLETED ===");
         }
 
-        // 新しい性能分析システムの初期化
+        // 性能分析システムの初期化
         private static void InitializePerformanceSystem()
         {
             try
@@ -70,20 +77,18 @@ namespace CS1Profiler
                 {
                     UnityEngine.Debug.Log("[CS1Profiler] Initializing Performance Analysis System...");
                     
-                    performanceProfiler = new PerformanceProfiler();
-                    performancePanel = new PerformancePanel(performanceProfiler);
+                    // パフォーマンスモニター用のGameObjectを作成
+                    performanceMonitorObject = new GameObject("CS1ProfilerMonitor");
+                    var manager = performanceMonitorObject.AddComponent<ProfilerManager>();
+                    manager.Initialize();
                     
-                    // MonoBehaviour用のGameObjectを作成
-                    if (performanceMonitorObject == null)
-                    {
-                        performanceMonitorObject = new GameObject("CS1PerformanceMonitor");
-                        var monitor = performanceMonitorObject.AddComponent<PerformanceMonitor>();
-                        PerformanceMonitor.Initialize(performanceProfiler, performancePanel);
-                        UnityEngine.Object.DontDestroyOnLoad(performanceMonitorObject);
-                        
-                        // インスタンス管理に登録
-                        InstanceManager.RegisterObject(performanceMonitorObject);
-                    }
+                    // パフォーマンスパネルを作成
+                    performancePanel = new PerformancePanel(null);
+                    
+                    // UI管理システムも追加
+                    performanceMonitorObject.AddComponent<UIManager>();
+                    
+                    UnityEngine.Object.DontDestroyOnLoad(performanceMonitorObject);
                     
                     performanceSystemInitialized = true;
                     UnityEngine.Debug.Log("[CS1Profiler] Performance Analysis System initialized successfully");
@@ -97,19 +102,51 @@ namespace CS1Profiler
 
         public void OnGUI()
         {
-            // MonoBehaviourで処理するためここは空
+            // キー入力処理
+            if (Event.current.type == EventType.KeyDown)
+            {
+                if (Event.current.keyCode == KeyCode.P)
+                {
+                    if (performancePanel != null)
+                    {
+                        performancePanel.TogglePanel();
+                    }
+                }
+                else if (Event.current.keyCode == KeyCode.F12)
+                {
+                    // CSV出力
+                    var profilerManager = ProfilerManager.Instance;
+                    if (profilerManager != null)
+                    {
+                        profilerManager.ExportToCSV();
+                        UnityEngine.Debug.Log("[CS1Profiler] Manual CSV export triggered");
+                    }
+                }
+            }
+            
+            // PerformancePanelを直接描画
+            if (performancePanel != null)
+            {
+                performancePanel.OnGUI();
+            }
         }
 
         public void Update()
         {
-            // 定期的なCSV出力（30秒間隔）
-            if (_lastCsvOutput == DateTime.MinValue || 
-                (DateTime.Now - _lastCsvOutput).TotalSeconds >= CSV_OUTPUT_INTERVAL_SECONDS)
+            // 定期的なCSV出力（30秒間隔）- 自動出力が有効な場合のみ
+            if (_csvAutoOutputEnabled && 
+                (_lastCsvOutput == DateTime.MinValue || 
+                (DateTime.Now - _lastCsvOutput).TotalSeconds >= CSV_OUTPUT_INTERVAL_SECONDS))
             {
                 try
                 {
-                    // MethodProfilerの統計をCSV出力
-                    ProfilerManager.OutputMethodStats();
+                    // ProfilerManagerのCSV出力を呼び出し
+                    var profilerManager = ProfilerManager.Instance;
+                    if (profilerManager != null)
+                    {
+                        profilerManager.ExportToCSV();
+                    }
+                    
                     _lastCsvOutput = DateTime.Now;
                     UnityEngine.Debug.Log($"[CS1Profiler] CSV output completed at {_lastCsvOutput:HH:mm:ss}");
                 }
@@ -123,6 +160,10 @@ namespace CS1Profiler
         public void OnDisabled()
         {
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled ===");
+            
+            // Harmonyパッチをクリーンアップ
+            Hooks.Cleanup();
+            
             DestroyProfilerManager();
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled COMPLETED ===");
         }
@@ -140,9 +181,10 @@ namespace CS1Profiler
                     UnityEngine.Object.Destroy(existingManager);
                 }
 
-                // 新しいProfilerManagerを作成
-                // ProfilerManagerを初期化（staticクラス）
-                ProfilerManager.Initialize();
+                // ProfilerManagerを作成
+                _profilerManagerObject = new GameObject(ProfilerManagerName);
+                _profilerManagerObject.AddComponent<ProfilerManager>();
+                UnityEngine.Object.DontDestroyOnLoad(_profilerManagerObject);
                 
                 UnityEngine.Debug.Log("[CS1Profiler] ProfilerManager initialized successfully");
             }
@@ -229,10 +271,11 @@ namespace CS1Profiler
                 UnityEngine.Debug.Log("[CS1Profiler-Startup] " + logEntry);
                 
                 // ProfilerManager経由でCSVに記録
-                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                if (ProfilerManager.Instance != null)
                 {
                     long memoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
-                    ProfilerManager.Instance.CsvManager.QueueCsvWrite("Startup", eventType, elapsed.TotalMilliseconds, 1, memoryMB, 0, description);
+                    UnityEngine.Debug.Log($"[CS1Profiler] Logging startup event: {eventType} - Memory: {memoryMB}MB");
+                    ProfilerManager.Instance.ExportToCSV();
                 }
             }
             catch (Exception e)
@@ -266,11 +309,10 @@ namespace CS1Profiler
                 UnityEngine.Debug.Log(sb.ToString());
                 
                 // ProfilerManager経由でCSV統計を保存
-                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                if (ProfilerManager.Instance != null)
                 {
-                    ProfilerManager.Instance.CsvManager.QueueCsvWrite("StartupSummary", "TotalTime", totalStartupTime.TotalMilliseconds, 
-                        _startupLog.Count, GC.GetTotalMemory(false) / 1024 / 1024, 0, 
-                        "Complete startup analysis - " + _startupLog.Count + " events tracked");
+                    ProfilerManager.Instance.ExportToCSV();
+                    UnityEngine.Debug.Log("[CS1Profiler] Startup analysis CSV exported");
                 }
                 
             }
@@ -368,28 +410,19 @@ namespace CS1Profiler
                 mainGroup.AddSpace(5);
                 try
                 {
-                    bool csvEnabled = false;
-                    if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
-                    {
-                        csvEnabled = true; // CSV機能が利用可能
-                    }
-                    
-                    mainGroup.AddCheckbox("Enable CSV Output:", 
-                        csvEnabled, 
+                    mainGroup.AddCheckbox("Enable Auto CSV Output (30s):", 
+                        _csvAutoOutputEnabled, 
                         (value) => {
                             try
                             {
-                                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                                _csvAutoOutputEnabled = value;
+                                if (value)
                                 {
-                                    if (value)
-                                    {
-                                        ProfilerManager.Instance.CsvManager.QueueCsvWrite("System", "CSVEnabled", 0, 0, 0, 0, "CSV output enabled from options");
-                                        UnityEngine.Debug.Log("[CS1Profiler] CSV output enabled");
-                                    }
-                                    else
-                                    {
-                                        UnityEngine.Debug.Log("[CS1Profiler] CSV output disabled");
-                                    }
+                                    UnityEngine.Debug.Log("[CS1Profiler] Auto CSV output enabled");
+                                }
+                                else
+                                {
+                                    UnityEngine.Debug.Log("[CS1Profiler] Auto CSV output disabled");
                                 }
                             }
                             catch (Exception ex)
@@ -427,12 +460,7 @@ namespace CS1Profiler
                             InitializeProfilerManager();
                             InitializePerformanceSystem();
                             
-                            // パフォーマンスパネルを表示
-                            if (performancePanel != null)
-                            {
-                                performancePanel.TogglePanel();
-                                UnityEngine.Debug.Log("[CS1Profiler] Performance Panel opened");
-                            }
+                            UnityEngine.Debug.Log("[CS1Profiler] Instance reset completed");
                         });
                         
                         // インスタンスリセット実行
@@ -450,15 +478,15 @@ namespace CS1Profiler
                 mainGroup.AddButton("📊 Toggle Performance Panel", () => {
                     try
                     {
-                        if (performancePanel == null)
-                        {
-                            InitializePerformanceSystem();
-                        }
-                        
+                        InitializePerformanceSystem();
                         if (performancePanel != null)
                         {
                             performancePanel.TogglePanel();
                             UnityEngine.Debug.Log("[CS1Profiler] Performance Panel toggled via UI");
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.LogWarning("[CS1Profiler] Performance Panel not initialized");
                         }
                     }
                     catch (Exception ex)
