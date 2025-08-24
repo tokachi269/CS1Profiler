@@ -28,12 +28,18 @@
     <!-- フォルダ分けしたソースファイル群 -->
     <!-- Core: メインのMODクラスと共通定義 -->
     <Compile Include="src\Core\Common.cs" />
-    <Compile Include="src\Core\Mod.cs" />
+    <Compile Include="src\UserMod.cs" />
+    <Compile Include="src\Core\PerformanceMonitor.cs" />
+    <Compile Include="src\Core\InstanceManager.cs" />
     <!-- Managers: 各種管理クラス -->
     <Compile Include="src\Managers\ProfilerManager.cs" />
     <Compile Include="src\Managers\CSVManager.cs" />
+    <Compile Include="src\Managers\PerformanceProfiler.cs" />
+    <!-- Profiling: 性能測定関連 -->
+    <Compile Include="src\Profiling\MethodProfiler.cs" />
     <!-- UI: ユーザーインターフェース関連 -->
     <Compile Include="src\UI\UI.cs" />
+    <Compile Include="src\UI\PerformancePanel.cs" />
     <!-- Harmony: パッチとフック処理 -->
     <Compile Include="src\Harmony\HarmonyPatches.cs" />
   </ItemGroup>

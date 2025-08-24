@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
-namespace CS1Profiler
+namespace CS1Profiler.Managers
 {
     /// <summary>
     /// CSV出力管理クラス（インスタンス対応）
@@ -83,6 +83,46 @@ namespace CS1Profiler
             catch (Exception e)
             {
                 UnityEngine.Debug.LogError("[CS1Profiler] CSV queue error: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// パフォーマンスデータ専用のCSV出力
+        /// </summary>
+        public void QueuePerformanceData(PerformanceProfiler.PerformanceData data)
+        {
+            try
+            {
+                if (!_csvInitialized) Initialize();
+                if (!_csvInitialized) return;
+
+                string timestamp = data.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                float fps = data.FrameTime > 0 ? 1000f / data.FrameTime : 0f;
+
+                // パフォーマンスデータのCSV行
+                string csvLine = string.Format("{0},{1},Performance,FrameData,{2:F3},{3},{4:F2},0,FPS:{5:F1}|DrawCalls:{6}|Triangles:{7}|GPU:{8:F1}MB|{9}",
+                    timestamp,
+                    data.FrameCount,
+                    data.FrameTime,
+                    data.DrawCalls,
+                    data.UsedMemory / 1024.0 / 1024.0,
+                    fps,
+                    data.DrawCalls,
+                    data.Triangles,
+                    data.GPUMemoryMB,
+                    data.GPUName);
+
+                _csvBuffer.Add(csvLine);
+
+                // 定期的にフラッシュ（パフォーマンスデータは頻繁なので）
+                if (_csvBuffer.Count > 20)
+                {
+                    FlushCsvBuffer();
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Performance CSV queue error: " + e.Message);
             }
         }
 

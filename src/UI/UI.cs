@@ -3,6 +3,7 @@
 using System;
 using ICities;
 using UnityEngine;
+using CS1Profiler.Managers;
 
 namespace CS1Profiler
 {
