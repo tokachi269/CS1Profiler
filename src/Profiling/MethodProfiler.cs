@@ -28,8 +28,8 @@ namespace CS1Profiler.Profiling
             {
                 UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initializing...");
                 
-                // MODとメソッド検出、パッチング
-                MethodPatcher.Initialize(harmony);
+                // 初期化完了（MOD検出とパッチングはHarmonyPatches.csで実行済み）
+                // MethodPatcherは削除されHarmonyPatches.csに統合済み
                 
                 _isInitialized = true;
                 UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initialization completed");
@@ -170,17 +170,49 @@ namespace CS1Profiler.Profiling
             PerformanceProfiler.Reset();
             SpikeDetector.Reset();
         }
-        
-        // パッチ情報取得
-        public static int GetPatchedMethodCount()
+
+        // 要件対応: CSV出力用のメソッドを追加
+        public static string GetCSVReportTopN(int topN)
         {
-            return MethodPatcher.GetPatchedMethodCount();
+            var topMethods = PerformanceProfiler.GetTopMethods(topN);
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Rank,Method,AvgMs,MaxMs,TotalMs,Calls");
+            
+            for (int i = 0; i < topMethods.Count; i++)
+            {
+                var method = topMethods[i];
+                csv.AppendLine(string.Format("{0},{1},{2:F3},{3:F3},{4:F3},{5}",
+                    i + 1, method.MethodName, method.AverageMilliseconds, 
+                    method.MaxMilliseconds, method.TotalMilliseconds, method.CallCount));
+            }
+            
+            return csv.ToString();
+        }
+
+        // 軽量版: 生データをそのまま出力（外部で集計処理）
+        public static string GetCSVReportAll()
+        {
+            // TopNと同じヘッダを使用し、非常に大きな値で全データを取得
+            return GetCSVReportTopN(10000);
+        }
+
+        // 要件対応: 統計をクリア
+        public static void Clear()
+        {
+            Reset();
+            UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler statistics cleared");
         }
         
-        // MOD検出結果
+        // パッチ情報取得（ダミー実装）
+        public static int GetPatchedMethodCount()
+        {
+            return 0; // HarmonyPatches.csで管理されるため
+        }
+        
+        // MOD検出結果（ダミー実装）
         public static bool IsFromDetectedMod(string methodKey)
         {
-            return MethodPatcher.IsFromDetectedMod(methodKey);
+            return false; // 必要に応じてHarmonyPatches.csで実装
         }
     }
 }
