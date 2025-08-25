@@ -85,8 +85,8 @@ namespace CS1Profiler
                 // プロファイリング状況
                 GUILayout.Label("=== Profiling Status ===", headerStyle);
                 
-                bool isEnabled = CS1Profiler.Harmony.Hooks.IsEnabled();
-                GUILayout.Label($"Profiling: {(isEnabled ? "Active" : "Inactive")}", normalStyle);
+                // bool isEnabled = CS1Profiler.Harmony.Hooks.IsEnabled(); // Hooks not available
+                // GUILayout.Label($"Profiling: {(isEnabled ? "Active" : "Inactive")}", normalStyle);
                 
                 var profiler = CS1Profiler.Managers.ProfilerManager.Instance;
                 if (profiler != null)

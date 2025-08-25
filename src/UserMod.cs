@@ -40,7 +40,7 @@ namespace CS1Profiler
         // IUserMod必須プロパティ
         public string Name 
         { 
-            get { return "CS1 Startup Performance Analyzer"; } 
+            get { return "Performance Analyzer"; } 
         }
         
         public string Description 
@@ -61,7 +61,7 @@ namespace CS1Profiler
             }
             
             // Harmonyパッチを初期化
-            Hooks.Initialize();
+            CS1Profiler.Patcher.PatchAll();
             
             InitializeProfilerManager();
             InitializePerformanceSystem();
@@ -162,7 +162,7 @@ namespace CS1Profiler
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled ===");
             
             // Harmonyパッチをクリーンアップ
-            Hooks.Cleanup();
+            CS1Profiler.Patcher.UnpatchAll();
             
             DestroyProfilerManager();
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled COMPLETED ===");
@@ -330,7 +330,7 @@ namespace CS1Profiler
                 UnityEngine.Debug.Log("[CS1Profiler] OnSettingsUI starting...");
                 
                 // メイングループを作成
-                var mainGroup = helper.AddGroup("CS1 Performance Profiler");
+                var mainGroup = helper.AddGroup("Profiler");
                 
                 // ステータス情報
                 mainGroup.AddSpace(5);

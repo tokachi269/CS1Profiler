@@ -12,6 +12,7 @@ namespace CS1Profiler.Managers
         public static ProfilerManager Instance => instance;
         
         private CSVManager csvManager;
+        public CSVManager CsvManager => csvManager;
         private bool isProfilingEnabled = true;
         private bool isInitialized = false;
         private HarmonyLib.Harmony harmonyInstance;
@@ -41,6 +42,9 @@ namespace CS1Profiler.Managers
                 
                 csvManager = new CSVManager();
                 csvManager.Initialize();
+                // Harmonyパッチ適用とログ抑制の初期化
+                CS1Profiler.Patcher.PatchAll();
+
 
                 if (CitiesHarmony.API.HarmonyHelper.IsHarmonyInstalled)
                 {

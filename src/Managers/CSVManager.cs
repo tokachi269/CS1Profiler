@@ -17,18 +17,20 @@ namespace CS1Profiler.Managers
         public void Initialize()
         {
             if (_csvInitialized) return;
-            
+
             try
             {
                 Debug.Log("[CS1Profiler] Starting CSV initialization...");
-                
+
                 string gameDirectory = Application.dataPath;
                 if (gameDirectory.EndsWith("_Data"))
                 {
                     gameDirectory = Directory.GetParent(gameDirectory).FullName;
                 }
-                
+
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+                // 出力先: ドキュメント配下の Cities_Skylines フォルダ (書き込み許可あり)
                 _csvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_{timestamp}.csv");
                 
                 _csvBuffer.Add("DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description");
@@ -49,18 +51,18 @@ namespace CS1Profiler.Managers
             {
                 if (!_csvInitialized) Initialize();
                 if (!_csvInitialized) return;
-                
+
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                 int frame = Time.frameCount;
-                
+
                 if (memoryMB <= 0)
                 {
                     memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
                 }
-                
+
                 string csvLine = $"{timestamp},{frame},{category},{eventType},{durationMs:F12},{count},{memoryMB:F2},{rank},{description}";
                 _csvBuffer.Add(csvLine);
-                
+
                 if (_csvBuffer.Count > 50)
                 {
                     FlushCsvBuffer();
@@ -75,7 +77,7 @@ namespace CS1Profiler.Managers
         private void FlushCsvBuffer()
         {
             if (!_csvInitialized || string.IsNullOrEmpty(_csvFilePath) || _csvBuffer.Count == 0) return;
-            
+
             try
             {
                 using (var writer = new StreamWriter(_csvFilePath, true))
@@ -155,7 +157,7 @@ namespace CS1Profiler.Managers
                 Debug.LogError($"[CS1Profiler] ExportToCSV error: {e.Message}");
             }
         }
-        
+
         // 旧PerformanceProfiler互換性メソッド
         public void QueuePerformanceData(object data)
         {
