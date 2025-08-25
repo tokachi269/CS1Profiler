@@ -1,20 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using CS1Profiler.Profiling;
 
 namespace CS1Profiler.Managers
 {
     /// <summary>
-    /// CSV出力管理クラス（要件対応版）
+    /// CSV出力管理クラス（以前のフォーマット対応版）
     /// </summary>
     public class CSVManager
     {
+        private string _mainCsvFilePath;
         private bool _csvInitialized = false;
-        private string _gameDirectory;
-        private string _csvFilePath; // 後方互換性のため追加
-        private readonly List<string> _csvBuffer = new List<string>(); // 後方互換性のため追加
+        private readonly List<string> _csvBuffer = new List<string>();
 
         public void Initialize()
         {
@@ -24,20 +24,21 @@ namespace CS1Profiler.Managers
             {
                 Debug.Log("[CS1Profiler] Starting CSV initialization...");
 
-                _gameDirectory = Application.dataPath;
-                if (_gameDirectory.EndsWith("_Data"))
+                string gameDirectory = Application.dataPath;
+                if (gameDirectory.EndsWith("_Data"))
                 {
-                    _gameDirectory = Directory.GetParent(_gameDirectory).FullName;
+                    gameDirectory = Directory.GetParent(gameDirectory).FullName;
                 }
 
-                // 後方互換性のため既存形式のCSVパスも設定
+                // 一つのファイルにすべてのデータを記録
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                _csvFilePath = Path.Combine(_gameDirectory, $"CS1Profiler_{timestamp}.csv");
-                
+                _mainCsvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_{timestamp}.csv");
+
+                // 以前のフォーマットでヘッダーを設定
                 _csvBuffer.Add("DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description");
                 
                 _csvInitialized = true;
-                Debug.Log($"[CS1Profiler] CSV initialized. Output directory: {_gameDirectory}");
+                Debug.Log($"[CS1Profiler] CSV initialized: {_mainCsvFilePath}");
             }
             catch (Exception e)
             {
@@ -46,25 +47,67 @@ namespace CS1Profiler.Managers
             }
         }
 
-        // 要件対応: TopNをCSVに出力
-        public void ExportTopN(int topN)
+        // メソッド実行を記録（リアルタイムでファイルに書き込み）
+        public void LogMethodExecution(string methodName, double durationMs, int callCount)
         {
-            if (!_csvInitialized)
-            {
-                Debug.LogError("[CS1Profiler] CSV not initialized");
-                return;
-            }
-
             try
             {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"CS1Profiler_Top{topN}_{timestamp}.csv";
-                string filePath = Path.Combine(_gameDirectory, fileName);
+                if (!_csvInitialized) Initialize();
+                if (!_csvInitialized) return;
 
-                string csvContent = MethodProfiler.GetCSVReportTopN(topN);
-                File.WriteAllText(filePath, csvContent);
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                int frame = Time.frameCount;
+                double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
 
-                Debug.Log($"[CS1Profiler] Top{topN} CSV exported: {filePath}");
+                string csvLine = $"{timestamp},{frame},Performance,MethodExecution,{durationMs:F3},{callCount},{memoryMB:F2},0,{methodName}";
+                
+                _csvBuffer.Add(csvLine);
+                
+                // バッファが大きくなりすぎた場合は即座にファイルに書き込み
+                if (_csvBuffer.Count > 100)
+                {
+                    FlushCsvBuffer();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] LogMethodExecution failed: {e.Message}");
+            }
+        }
+
+        // TopNデータをメインファイルに書き込み
+        public void ExportTopN(int n)
+        {
+            try
+            {
+                if (!_csvInitialized) Initialize();
+                
+                var stats = MethodProfiler.GetStats();
+                if (stats == null || !stats.Any())
+                {
+                    Debug.LogWarning("[CS1Profiler] No data to export for TopN");
+                    return;
+                }
+
+                var sortedStats = stats.OrderByDescending(kvp => kvp.Value.TotalMs).Take(n).ToList();
+                
+                _csvBuffer.Add($"# === TOP {n} METHODS EXPORT ===");
+                
+                int rank = 1;
+                foreach (var kvp in sortedStats)
+                {
+                    var data = kvp.Value;
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                    int frame = Time.frameCount;
+                    double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
+                    
+                    string csvLine = $"{timestamp},{frame},Export,Top{n}Export,{data.AverageMs:F3},{data.CallCount},{memoryMB:F2},{rank},{kvp.Key}";
+                    _csvBuffer.Add(csvLine);
+                    rank++;
+                }
+                
+                FlushCsvBuffer();
+                Debug.Log($"[CS1Profiler] Top{n} data logged to main CSV file");
             }
             catch (Exception e)
             {
@@ -72,25 +115,39 @@ namespace CS1Profiler.Managers
             }
         }
 
-        // 要件対応: 全メソッドをCSVに出力
+        // 全データをメインファイルに書き込み
         public void ExportAll()
         {
-            if (!_csvInitialized)
-            {
-                Debug.LogError("[CS1Profiler] CSV not initialized");
-                return;
-            }
-
             try
             {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"CS1Profiler_All_{timestamp}.csv";
-                string filePath = Path.Combine(_gameDirectory, fileName);
+                if (!_csvInitialized) Initialize();
+                
+                var stats = MethodProfiler.GetStats();
+                if (stats == null || !stats.Any())
+                {
+                    Debug.LogWarning("[CS1Profiler] No data to export for All");
+                    return;
+                }
 
-                string csvContent = MethodProfiler.GetCSVReportAll();
-                File.WriteAllText(filePath, csvContent);
-
-                Debug.Log($"[CS1Profiler] All methods CSV exported: {filePath}");
+                var sortedStats = stats.OrderByDescending(kvp => kvp.Value.TotalMs).ToList();
+                
+                _csvBuffer.Add("# === ALL METHODS EXPORT ===");
+                
+                int rank = 1;
+                foreach (var kvp in sortedStats)
+                {
+                    var data = kvp.Value;
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                    int frame = Time.frameCount;
+                    double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
+                    
+                    string csvLine = $"{timestamp},{frame},Export,AllExport,{data.AverageMs:F3},{data.CallCount},{memoryMB:F2},{rank},{kvp.Key}";
+                    _csvBuffer.Add(csvLine);
+                    rank++;
+                }
+                
+                FlushCsvBuffer();
+                Debug.Log($"[CS1Profiler] All data logged to main CSV file");
             }
             catch (Exception e)
             {
@@ -98,33 +155,13 @@ namespace CS1Profiler.Managers
             }
         }
 
-        // 軽量版: 生データを直接出力（平均計算なし）
+        // 生データを書き込み（平均計算なし）
         public void ExportAllRawData()
         {
-            if (!_csvInitialized)
-            {
-                Debug.LogError("[CS1Profiler] CSV not initialized");
-                return;
-            }
-
-            try
-            {
-                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string fileName = $"CS1Profiler_RawData_{timestamp}.csv";
-                string filePath = Path.Combine(_gameDirectory, fileName);
-
-                string csvContent = MethodProfiler.GetCSVReportAll(); // 既に軽量化済み
-                File.WriteAllText(filePath, csvContent);
-
-                Debug.Log($"[CS1Profiler] Raw data CSV exported: {filePath}");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[CS1Profiler] ExportAllRawData failed: {e.Message}");
-            }
+            ExportAll(); // 同じファイルに書き込み
         }
 
-        // 既存のQueueCsvWriteメソッドは後方互換性のため保持
+        // 汎用CSVライン追加（以前の互換性維持）
         public void QueueCsvWrite(string category, string eventType, double durationMs, int count, double memoryMB, int rank, string description = "")
         {
             try
@@ -140,7 +177,7 @@ namespace CS1Profiler.Managers
                     memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
                 }
 
-                string csvLine = $"{timestamp},{frame},{category},{eventType},{durationMs:F12},{count},{memoryMB:F2},{rank},{description}";
+                string csvLine = $"{timestamp},{frame},{category},{eventType},{durationMs:F3},{count},{memoryMB:F2},{rank},{description}";
                 _csvBuffer.Add(csvLine);
 
                 if (_csvBuffer.Count > 50)
@@ -156,15 +193,26 @@ namespace CS1Profiler.Managers
 
         private void FlushCsvBuffer()
         {
-            if (!_csvInitialized || string.IsNullOrEmpty(_csvFilePath) || _csvBuffer.Count == 0) return;
+            if (!_csvInitialized || string.IsNullOrEmpty(_mainCsvFilePath) || _csvBuffer.Count == 0) return;
 
             try
             {
-                using (var writer = new StreamWriter(_csvFilePath, true))
+                StreamWriter writer = null;
+                try
                 {
+                    writer = new StreamWriter(_mainCsvFilePath, true);
                     foreach (string line in _csvBuffer)
                     {
                         writer.WriteLine(line);
+                    }
+                    writer.Flush();
+                }
+                finally
+                {
+                    if (writer != null)
+                    {
+                        writer.Close();
+                        writer = null;
                     }
                 }
                 _csvBuffer.Clear();
@@ -177,12 +225,12 @@ namespace CS1Profiler.Managers
 
         public string GetCsvFilePath()
         {
-            return _csvFilePath ?? "CSV not initialized";
+            return _mainCsvFilePath ?? "CSV not initialized";
         }
 
         public string GetCsvPath()
         {
-            return _csvFilePath ?? "CS1Profiler_Unknown.csv";
+            return _mainCsvFilePath ?? "CS1Profiler_Unknown.csv";
         }
 
         public void Cleanup()
@@ -203,42 +251,17 @@ namespace CS1Profiler.Managers
             }
         }
 
+        // 旧互換性メソッド
         public void LogCurrentStats()
         {
-            try
-            {
-                Debug.Log("[CS1Profiler] === Current Performance Stats ===");
-                var stats = CS1Profiler.Profiling.PerformanceProfiler.GetTopMethods(10);
-                foreach (var stat in stats)
-                {
-                    Debug.Log($"[CS1Profiler] {stat.MethodName}: {stat.AverageMilliseconds:F3}ms avg ({stat.CallCount} calls)");
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[CS1Profiler] LogCurrentStats error: {e.Message}");
-            }
+            QueueCsvWrite("System", "StatsSnapshot", 0, 0, 0, 0, "Performance stats logged");
         }
 
         public void ExportToCSV()
         {
-            try
-            {
-                var stats = CS1Profiler.Profiling.PerformanceProfiler.GetTopMethods(100);
-                foreach (var stat in stats)
-                {
-                    QueueCsvWrite("Performance", "Method", stat.AverageMilliseconds, stat.CallCount, 0, 0, stat.MethodName);
-                }
-                FlushCsvBuffer();
-                Debug.Log($"[CS1Profiler] Exported {stats.Count} method stats to CSV");
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[CS1Profiler] ExportToCSV error: {e.Message}");
-            }
+            ExportAll(); // メインファイルに出力
         }
 
-        // 旧PerformanceProfiler互換性メソッド
         public void QueuePerformanceData(object data)
         {
             Debug.Log("[CS1Profiler] QueuePerformanceData called but disabled for lightweight profiling");

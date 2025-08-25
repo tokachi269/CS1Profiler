@@ -37,7 +37,6 @@
     <Compile Include="src\Profiling\MethodProfiler.cs" />
     <Compile Include="src\Profiling\PerformanceProfiler.cs" />
     <Compile Include="src\Profiling\SpikeDetector.cs" />
-    <Compile Include="src\Profiling\MethodPatcher.cs" />
     <Compile Include="src\Profiling\ProfileData.cs" />
     <!-- Harmony: パッチとフック処理 -->
     <Compile Include="src\Harmony\HarmonyPatches.cs" />

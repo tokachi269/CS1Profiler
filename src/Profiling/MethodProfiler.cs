@@ -28,8 +28,8 @@ namespace CS1Profiler.Profiling
             {
                 UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initializing...");
                 
-                // MODとメソッド検出、パッチング
-                MethodPatcher.Initialize(harmony);
+                // 初期化完了（MOD検出とパッチングはHarmonyPatches.csで実行済み）
+                // MethodPatcherは削除されHarmonyPatches.csに統合済み
                 
                 _isInitialized = true;
                 UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initialization completed");
@@ -192,11 +192,8 @@ namespace CS1Profiler.Profiling
         // 軽量版: 生データをそのまま出力（外部で集計処理）
         public static string GetCSVReportAll()
         {
-            var csv = new System.Text.StringBuilder();
-            csv.AppendLine("Timestamp,Method,ExecutionTicks");
-            
-            // 生データを直接出力するため、PerformanceProfilerから生データを取得
-            return PerformanceProfiler.GetRawDataCSV();
+            // TopNと同じヘッダを使用し、非常に大きな値で全データを取得
+            return GetCSVReportTopN(10000);
         }
 
         // 要件対応: 統計をクリア
@@ -206,16 +203,16 @@ namespace CS1Profiler.Profiling
             UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler statistics cleared");
         }
         
-        // パッチ情報取得
+        // パッチ情報取得（ダミー実装）
         public static int GetPatchedMethodCount()
         {
-            return MethodPatcher.GetPatchedMethodCount();
+            return 0; // HarmonyPatches.csで管理されるため
         }
         
-        // MOD検出結果
+        // MOD検出結果（ダミー実装）
         public static bool IsFromDetectedMod(string methodKey)
         {
-            return MethodPatcher.IsFromDetectedMod(methodKey);
+            return false; // 必要に応じてHarmonyPatches.csで実装
         }
     }
 }

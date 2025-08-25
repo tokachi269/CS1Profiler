@@ -1,53 +1,76 @@
-# CS1 Profiler - Cities Skylines Performance Monitor
+# CS1Profiler - Cities Skylines Performance Monitor
 
-Cities: Skylines用の軽量プロファイラーmod。主要なシミュレーションメソッドのパフォーマンスを測定します。
+Cities: Skylines用のプロファイラーMOD。Harmonyを使用してゲーム内メソッドの実行パフォーマンスを詳細に測定・記録します。
 
-## 機能
+## 機能概要
 
-- `SimulationStepImpl` メソッドの実行時間測定
-- UI更新処理のプロファイリング
-- 低オーバーヘッド設計
-- ModTools (F7) またはログファイルで結果確認
+### コア機能
+- **Harmonyパッチング**: ゲーム内の重要なメソッドを自動的にパッチしてパフォーマンス測定
+- **統計記録**: メソッド毎の平均実行時間、最大実行時間、総実行時間、呼び出し回数を記録
+- **CSV出力**: Top100/全データをCSV形式で出力、30秒間隔の自動出力機能
+- **リアルタイムUI**: ゲーム内でTop50メソッドの実行統計を表示
+
+### UI操作
+- **P キー**: パフォーマンスパネルの表示/非表示切り替え
+- **F12 キー**: Top100メソッドをCSV出力
+- **オプション画面**: Top100 CSVエクスポート、統計クリア機能
 
 ## 必要な環境
 
 ### 前提条件
-
 1. **Cities: Skylines** (Steam版)
-2. **.NET Framework 4.8** または **.NET 6+ SDK**
-3. **CitiesHarmony** mod (Workshop ID: 2040656402)
+2. **.NET Framework 3.5** (C# 3.5互換)
+3. **CitiesHarmony** MOD (Workshop ID: 2040656402)
 
-### 参照DLLの場所
-
-Cities SkylinesのゲームファイルからDLLを参照します：
-
+### 参照DLL
+Cities SkylinesのゲームファイルからDLLを参照：
 ```
-C:\Program Files (x86)\SteamLibrary\steamapps\common\Cities_Skylines\Cities_Data\Managed\
-├── ICities.dll          ※ Mod開発の基本API
-├── UnityEngine.dll      ※ Unityエンジン
-├── ColossalManaged.dll  ※ ゲーム基本機能
-└── Assembly-CSharp.dll  ※ ゲームロジック
+C:\Program Files (x86)\Steam\steamapps\common\Cities_Skylines\Cities_Data\Managed\
+├── ICities.dll          # MOD開発API
+├── UnityEngine.dll      # Unityエンジン
+├── ColossalManaged.dll  # ゲーム基本機能
+└── Assembly-CSharp.dll  # ゲームロジック
 ```
-
-### CitiesHarmony
-
-CitiesHarmonyはNuGetパッケージとして自動取得されます：
-- `CitiesHarmony.API` (NuGet) - 開発時の参照用
-- Workshop ID 2040656402のCitiesHarmony modが実行時に必要
 
 ## ビルド・配置
 
-### 1. Steamパスの設定
-
-環境変数 `STEAM_PATH` を設定するか、標準的な場所にSteamがインストールされている必要があります：
-
+### 1. ビルド実行
 ```powershell
-# 環境変数で指定する場合（カスタムインストール場所の場合）
-$env:STEAM_PATH = "C:\Program Files (x86)\SteamLibrary"
+# PowerShellでビルド
+.\build\build.ps1
 ```
 
-自動検出される場所：
-- `C:\Program Files (x86)\SteamLibrary`
+### 2. 自動配置
+ビルドスクリプトが以下を自動実行：
+- Release構成でビルド
+- MODフォルダーに自動配置: `%LOCALAPPDATA%\Colossal Order\Cities_Skylines\Addons\Mods\CS1Profiler\`
+
+## パフォーマンス測定
+
+### パッチ対象クラス
+ブラックリスト方式でフィルタリング：
+- **除外**: System、Unity、Attribute、Exception、Event クラス
+- **対象**: Manager、AI、Controller、Service、Simulation、Render等のゲームロジッククラス
+
+### パッチ対象メソッド
+- **除外**: プロパティアクセサー、イベントハンドラー、基本メソッド
+- **対象**: 実際のゲームロジックを実装するメソッド
+
+## 出力データ
+
+### CSV形式
+```csv
+Rank,Method,AvgMs,MaxMs,TotalMs,Calls
+1,SimulationManager.SimulationStep,2.45,15.2,245.7,100
+2,RenderManager.LateUpdate,1.23,8.9,123.4,100
+```
+
+### 出力ファイル
+```
+Cities: Skylines インストールディレクトリ/
+├── CS1Profiler_Top100_YYYYMMDD_HHMMSS.csv    # 手動出力
+└── CS1Profiler_All_YYYYMMDD_HHMMSS.csv       # 自動出力(30秒間隔)
+```
 - `C:\Program Files (x86)\Steam` 
 - `C:\Program Files\Steam`
 

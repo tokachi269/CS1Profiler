@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Linq;
 using UnityEngine;
 using CS1Profiler.Managers;
 
@@ -64,7 +65,19 @@ namespace CS1Profiler
                         prefix: new HarmonyLib.HarmonyMethod(typeof(Hooks).GetMethod("Pre")),
                         postfix: new HarmonyLib.HarmonyMethod(typeof(Hooks).GetMethod("Post"))
                     );
-                    UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStepImpl patched successfully");
+                    UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStepImpl patched successfully (old system)");
+                }
+
+                // さらにSimulationManager.SimulationStepもパフォーマンス測定対象に
+                var simStepMethod = simType.GetMethod("SimulationStep", 
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                
+                if (simStepMethod != null)
+                {
+                    var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
+                    var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
+                    harmony.Patch(simStepMethod, prefix, postfix);
+                    UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStep patched (new system)");
                 }
             }
             catch (Exception e)
@@ -75,64 +88,155 @@ namespace CS1Profiler
             UnityEngine.Debug.Log("[CS1Profiler] Startup analysis + performance monitoring patches complete.");
         }
 
-        // 要件対応: Manager/AI/Controller系クラスの性能測定パッチ
+        // パフォーマンス測定用のブラックリストシステム
+        private static readonly HashSet<string> _modAssemblyNames = new HashSet<string>();
+        private static readonly HashSet<string> _modTypeNames = new HashSet<string>();
+        
+        // 要件対応: Manager/AI/Controller系クラスの性能測定パッチ（統一されたブラックリスト制）
         private static void ApplyPerformancePatches(HarmonyLib.Harmony harmony)
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Applying performance measurement patches...");
+                UnityEngine.Debug.Log("[CS1Profiler] Applying performance measurement patches (unified blacklist system)...");
                 
-                var targetAssemblies = new[] { "Assembly-CSharp", "ColossalFramework" };
-                var targetClassNames = new[] { "Manager", "AI", "Controller", "Loader", "Thread", "Service", "Simulation", "Render" };
-                var targetMethodNames = new[] { "SimulationStep", "Update", "LateUpdate", "Start", "Awake", "OnEnable", "OnDisable", "OnLevelLoaded", "OnLevelUnloading" };
+                // MOD検出
+                DetectRealModAssemblies();
+                
+                // 統一されたパッチシステム
+                ApplyBlacklistPatches(harmony);
+                
+                UnityEngine.Debug.Log("[CS1Profiler] Performance measurement patches applied");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] ApplyPerformancePatches failed: " + e.Message);
+            }
+        }
+        
+        private static void DetectRealModAssemblies()
+        {
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Detecting MOD assemblies...");
+                
+                var pluginManager = PluginManager.instance;
+                if (pluginManager?.GetPluginsInfo() == null) return;
+                
+                foreach (var plugin in pluginManager.GetPluginsInfo())
+                {
+                    if (!plugin.isEnabled || plugin.isBuiltin) continue;
+                    
+                    foreach (var assembly in plugin.GetAssemblies())
+                    {
+                        if (assembly != null)
+                        {
+                            _modAssemblyNames.Add(assembly.GetName().Name);
+                            
+                            // すべてのタイプを検出（ブラックリスト制）
+                            try
+                            {
+                                var types = assembly.GetTypes();
+                                int addedTypes = 0;
+                                
+                                foreach (var type in types)
+                                {
+                                    // ブラックリスト：除外すべきタイプ
+                                    if (type.IsAbstract || type.IsInterface || type.IsEnum ||
+                                        type.Namespace?.StartsWith("System") == true ||
+                                        type.Namespace?.StartsWith("Microsoft") == true ||
+                                        type.FullName?.Contains("UnityEngine") == true ||
+                                        type.Name.Contains("Exception") ||
+                                        type.Name.Contains("Debug") ||
+                                        type.Name.Contains("Console") ||
+                                        // 不要なMOD除外
+                                        type.FullName?.StartsWith("CSShared") == true ||
+                                        type.FullName?.Contains(".IO.") == true ||
+                                        type.FullName?.StartsWith("ModTools") == true ||
+                                        type.FullName?.StartsWith("ExtendedAssetEditor") == true ||
+                                        type.FullName?.StartsWith("CS1Profiler") == true ||
+                                        type.FullName?.StartsWith("JsonFx") == true ||
+                                        // クラッシュ原因MOD除外
+                                        type.FullName?.StartsWith("LineToolMod") == true ||
+                                        // Harmony関連MOD除外
+                                        type.FullName?.Contains("PatchAll") == true ||
+                                        type.FullName?.Contains("Harmony") == true ||
+                                        assembly.GetName().Name?.Contains("PatchAll") == true ||
+                                        assembly.GetName().Name?.Contains("Harmony") == true ||
+                                        // Keybind関連MOD除外
+                                        type.FullName?.Contains("Keybind") == true ||
+                                        type.FullName?.Contains("KeyBinding") == true ||
+                                        type.FullName?.Contains("Shortcut") == true ||
+                                        assembly.GetName().Name?.Contains("Keybind") == true ||
+                                        assembly.GetName().Name?.Contains("KeyBinding") == true)
+                                    {
+                                        continue; // 除外
+                                    }
+                                    
+                                    // それ以外はすべて重要なタイプとして追加
+                                    _modTypeNames.Add(type.FullName);
+                                    addedTypes++;
+                                }
+                                
+                                if (addedTypes > 0)
+                                {
+                                    UnityEngine.Debug.Log($"[CS1Profiler] {assembly.GetName().Name}: {addedTypes} types detected (blacklist system)");
+                                }
+                            }
+                            catch { /* 一部のアセンブリは型を取得できない */ }
+                        }
+                    }
+                }
+                
+                UnityEngine.Debug.Log($"[CS1Profiler] Detected {_modAssemblyNames.Count} MOD assemblies, {_modTypeNames.Count} critical types");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] DetectRealModAssemblies error: {e.Message}");
+            }
+        }
+        
+        private static void ApplyBlacklistPatches(HarmonyLib.Harmony harmony)
+        {
+            try
+            {
+                var targetAssemblies = new List<string> { "Assembly-CSharp", "ColossalFramework" };
+                targetAssemblies.AddRange(_modAssemblyNames);
                 
                 int patchCount = 0;
                 
                 foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
                 {
                     string assemblyName = assembly.GetName().Name;
-                    if (!System.Array.Exists(targetAssemblies, name => name == assemblyName)) continue;
+                    if (!targetAssemblies.Contains(assemblyName)) continue;
                     
                     try
                     {
-                        foreach (var type in assembly.GetTypes())
+                        // 不要なMODを除外した型をパッチ
+                        foreach (var type in assembly.GetTypes().Take(100))
                         {
-                            // ターゲットクラス名を含むクラスかチェック
-                            bool isTargetClass = false;
-                            foreach (var targetClass in targetClassNames)
-                            {
-                                if (type.Name.Contains(targetClass))
-                                {
-                                    isTargetClass = true;
-                                    break;
-                                }
-                            }
+                            if (!IsPerformanceCriticalType(type)) continue;
                             
-                            if (!isTargetClass) continue;
+                            var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                                .Where(IsPerformanceCriticalMethod)
+                                .Take(20);
                             
-                            // ターゲットメソッドにパッチを適用
-                            foreach (var methodName in targetMethodNames)
+                            foreach (var method in methods)
                             {
                                 try
                                 {
-                                    var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-                                    foreach (var method in methods)
+                                    var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
+                                    var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
+                                    
+                                    harmony.Patch(method, prefix, postfix);
+                                    patchCount++;
+                                    
+                                    // MODタイプの場合のみログ出力
+                                    if (_modTypeNames.Contains(type.FullName))
                                     {
-                                        if (method.Name == methodName && !method.IsAbstract && !method.IsGenericMethod)
-                                        {
-                                            var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
-                                            var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
-                                            
-                                            harmony.Patch(method, prefix, postfix);
-                                            patchCount++;
-                                        }
+                                        UnityEngine.Debug.Log($"[CS1Profiler] ✓ MOD: {type.FullName}.{method.Name}");
                                     }
                                 }
-                                catch (Exception e)
-                                {
-                                    // 個別メソッドの失敗はログのみ
-                                    UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to patch {type.Name}.{methodName}: {e.Message}");
-                                }
+                                catch { /* 一部のメソッドはパッチできない */ }
                             }
                         }
                     }
@@ -142,12 +246,118 @@ namespace CS1Profiler
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] Applied {patchCount} performance measurement patches");
+                UnityEngine.Debug.Log($"[CS1Profiler] Applied {patchCount} performance patches using blacklist system");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] ApplyPerformancePatches failed: " + e.Message);
+                UnityEngine.Debug.LogError($"[CS1Profiler] ApplyBlacklistPatches error: {e.Message}");
             }
+        }
+        
+        private static bool IsPerformanceCriticalType(Type type)
+        {
+            if (type == null || type.IsAbstract || type.IsInterface || type.IsEnum) return false;
+            
+            // ジェネリック型安全フィルタ
+            if (type.IsGenericType || 
+                type.ContainsGenericParameters || 
+                type.Name.Contains("`") || 
+                type.Name.StartsWith("<") || 
+                type.Name.Contains(">")) return false;
+            
+            // システムタイプ除外
+            if (type.Namespace?.StartsWith("System") == true || 
+                type.Namespace?.StartsWith("Microsoft") == true ||
+                type.FullName?.Contains("UnityEngine") == true) return false;
+            
+            // 問題のあるMOD除外
+            if (type.FullName?.StartsWith("CSShared") == true ||
+                type.FullName?.StartsWith("ModTools") == true ||
+                type.FullName?.StartsWith("ExtendedAssetEditor") == true ||
+                type.FullName?.StartsWith("CS1Profiler") == true ||
+                type.FullName?.StartsWith("JsonFx") == true ||
+                type.FullName?.StartsWith("LineToolMod") == true ||
+                // Harmony関連MOD除外
+                type.FullName?.Contains("PatchAll") == true ||
+                type.FullName?.Contains("Harmony") == true ||
+                // Keybind関連MOD除外
+                type.FullName?.Contains("Keybind") == true ||
+                type.FullName?.Contains("KeyBinding") == true ||
+                type.FullName?.Contains("Shortcut") == true) return false;
+            
+            // MODタイプは強制的に含める（除外リストに該当しない場合のみ）
+            if (_modTypeNames.Contains(type.FullName)) return true;
+            
+            return true; // その他はすべて対象
+        }
+        
+        private static bool IsPerformanceCriticalMethod(MethodInfo method)
+        {
+            if (method == null || method.IsAbstract || method.IsConstructor || method.IsSpecialName) 
+                return false;
+            
+            // 安全チェック：メソッド本体が存在するか
+            var body = method.GetMethodBody();
+            if (body == null) return false;
+            
+            // ジェネリックメソッド安全フィルタ
+            if (method.IsGenericMethod || 
+                method.ContainsGenericParameters ||
+                method.ReturnType.IsGenericParameter ||
+                method.ReturnType.ContainsGenericParameters) return false;
+            
+            // ローカル変数にジェネリック型が含まれるメソッドも除外
+            try
+            {
+                foreach (var localVar in body.LocalVariables)
+                {
+                    if (localVar.LocalType.IsGenericParameter || 
+                        localVar.LocalType.ContainsGenericParameters)
+                    {
+                        return false; // 除外
+                    }
+                }
+            }
+            catch
+            {
+                // ローカル変数情報の取得に失敗した場合は安全のため除外
+                return false;
+            }
+            
+            var methodName = method.Name.ToLower();
+            
+            // ブラックリスト：除外すべきメソッド
+            if (methodName.StartsWith("get_") ||
+                methodName.StartsWith("set_") ||
+                methodName.StartsWith("add_") ||
+                methodName.StartsWith("remove_") ||
+                methodName.Contains("tostring") ||
+                methodName.Contains("gethashcode") ||
+                methodName.Contains("equals") ||
+                methodName.Contains("finalize") ||
+                methodName.Contains("dispose") ||
+                methodName.Contains("destroy") ||
+                methodName.Contains("unload") ||
+                methodName.Contains("delete") ||
+                methodName.Contains("abort") ||
+                methodName.Contains("exit") ||
+                methodName.Contains("quit") ||
+                methodName.StartsWith("__") ||
+                // Harmonyメソッド除外
+                methodName.Equals("patchall") ||
+                methodName.Equals("unpatchall") ||
+                methodName.Equals("prefixmethod") ||
+                methodName.Equals("postfixmethod") ||
+                methodName.Equals("transpilemethod") ||
+                methodName.Equals("unpatchmethod") ||
+                methodName.Contains("patch") && (methodName.Contains("prefix") || methodName.Contains("postfix") || methodName.Contains("transpile")) ||
+                method.GetParameters().Length > 10) // パラメータが多すぎるメソッドは除外
+            {
+                return false;
+            }
+            
+            // それ以外はすべて対象にする
+            return true;
         }
 
         private static void PatchStartupCriticalMethods(HarmonyLib.Harmony harmony)
@@ -359,9 +569,9 @@ namespace CS1Profiler
             {
                 UnityEngine.Debug.Log("[CS1Profiler] Attempting CSV write...");
                 // プロファイリング状態をCSVに記録（ProfilerManager経由）
-                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                if (CS1Profiler.Managers.ProfilerManager.Instance != null && CS1Profiler.Managers.ProfilerManager.Instance.CsvManager != null)
                 {
-                    ProfilerManager.Instance.CsvManager.QueueCsvWrite("System", "ProfilingToggle", 0, 0, 0, 0, _enabled ? "ENABLED" : "DISABLED");
+                    CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.QueueCsvWrite("System", "ProfilingToggle", 0, 0, 0, 0, _enabled ? "ENABLED" : "DISABLED");
                 }
                 UnityEngine.Debug.Log("[CS1Profiler] CSV write completed successfully");
             }
@@ -485,9 +695,9 @@ namespace CS1Profiler
                       .AppendLine();
                     
                     // 各メソッドの統計をCSVキューに追加（ProfilerManager経由）
-                    if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                    if (CS1Profiler.Managers.ProfilerManager.Instance != null && CS1Profiler.Managers.ProfilerManager.Instance.CsvManager != null)
                     {
-                        ProfilerManager.Instance.CsvManager.QueueCsvWrite(typeName, methodName, ms, entry.cnt, avgUs, i + 1);
+                        CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.QueueCsvWrite(typeName, methodName, ms, entry.cnt, avgUs, i + 1);
                     }
                     
                     _ns[entry.id] = 0; _cnt[entry.id] = 0;
@@ -499,11 +709,11 @@ namespace CS1Profiler
                 // KeyHandler.UpdateLog(sb.ToString()); // KeyHandler not available
                 
                 // システム統計もCSVに記録（ProfilerManager経由）
-                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                if (CS1Profiler.Managers.ProfilerManager.Instance != null && CS1Profiler.Managers.ProfilerManager.Instance.CsvManager != null)
                 {
                     float currentFps = 1.0f / UnityEngine.Time.deltaTime;
                     long memMB = GC.GetTotalMemory(false) / 1024 / 1024;
-                    ProfilerManager.Instance.CsvManager.QueueCsvWrite("System", "FrameStats", currentFps, 1, 0, 0, "FPS=" + currentFps.ToString("F1") + ",Memory=" + memMB + "MB");
+                    CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.QueueCsvWrite("System", "FrameStats", currentFps, 1, 0, 0, "FPS=" + currentFps.ToString("F1") + ",Memory=" + memMB + "MB");
                 }
             }
             catch (Exception e)
@@ -578,10 +788,10 @@ namespace CS1Profiler
                 LogStartupEvent("PACKAGEMANAGER_ENSURE_END", "PackageManager.Ensure() completed in " + elapsed.TotalMilliseconds.ToString("F1") + "ms - MOD loading finished");
                 
                 // 重要：MOD読み込み完了時のメモリ使用量も記録（ProfilerManager経由）
-                if (ProfilerManager.Instance != null && ProfilerManager.Instance.CsvManager != null)
+                if (CS1Profiler.Managers.ProfilerManager.Instance != null && CS1Profiler.Managers.ProfilerManager.Instance.CsvManager != null)
                 {
                     long memoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
-                    ProfilerManager.Instance.CsvManager.QueueCsvWrite("Memory", "PostMODLoad", memoryMB, 1, elapsed.TotalMilliseconds, 0, "Memory usage after MOD loading");
+                    CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.QueueCsvWrite("Memory", "PostMODLoad", memoryMB, 1, elapsed.TotalMilliseconds, 0, "Memory usage after MOD loading");
                 }
             }
             catch (Exception e)

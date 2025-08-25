@@ -158,6 +158,20 @@ namespace CS1Profiler.Profiling
                 {
                     _maxNs[methodId] = ns;
                 }
+
+                // CSVManagerにリアルタイムでデータを送信
+                try
+                {
+                    double executionTimeMs = ns / 1000000.0;
+                    if (CS1Profiler.Managers.ProfilerManager.Instance?.CsvManager != null)
+                    {
+                        CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.LogMethodExecution(methodKey, executionTimeMs, _callCounts[methodId]);
+                    }
+                }
+                catch (Exception csvEx)
+                {
+                    // CSVエラーは無視してプロファイリングを続行
+                }
             }
             catch (Exception e)
             {
@@ -189,6 +203,78 @@ namespace CS1Profiler.Profiling
             }
             
             return csv.ToString();
+        }
+
+        // 全データをTopNと同じ形式で出力（ヘッダ統一）
+        public static string GetAllDataCSV()
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Rank,Method,AvgMs,MaxMs,TotalMs,Calls");
+            
+            try
+            {
+                // 平均時間でソートするためのリスト作成
+                var methodList = new List<MethodData>();
+                
+                for (int i = 0; i < _nextMethodId; i++)
+                {
+                    if (_callCounts[i] > 0 && _methodNames[i] != null)
+                    {
+                        double totalMs = _totalNs[i] / 1000000.0;
+                        double maxMs = _maxNs[i] / 1000000.0;
+                        double avgMs = totalMs / _callCounts[i];
+                        
+                        methodList.Add(new MethodData
+                        {
+                            MethodName = _methodNames[i],
+                            TotalMs = totalMs,
+                            MaxMs = maxMs,
+                            AvgMs = avgMs,
+                            CallCount = _callCounts[i]
+                        });
+                    }
+                }
+                
+                // 平均時間でソート（降順）
+                for (int i = 0; i < methodList.Count - 1; i++)
+                {
+                    for (int j = i + 1; j < methodList.Count; j++)
+                    {
+                        if (methodList[i].AvgMs < methodList[j].AvgMs)
+                        {
+                            var temp = methodList[i];
+                            methodList[i] = methodList[j];
+                            methodList[j] = temp;
+                        }
+                    }
+                }
+                
+                // CSV出力
+                for (int i = 0; i < methodList.Count; i++)
+                {
+                    var method = methodList[i];
+                    csv.AppendLine(string.Format("{0},{1},{2:F3},{3:F3},{4:F3},{5}",
+                        i + 1, method.MethodName, method.AvgMs, method.MaxMs, method.TotalMs, method.CallCount));
+                }
+                
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] GetAllDataCSV error: " + e.Message);
+                csv.AppendLine("ERROR,ERROR,0,0,0,0");
+            }
+            
+            return csv.ToString();
+        }
+
+        // ヘルパークラス
+        private struct MethodData
+        {
+            public string MethodName;
+            public double TotalMs;
+            public double MaxMs;
+            public double AvgMs;
+            public int CallCount;
         }
     }
 }
