@@ -17,6 +17,7 @@ namespace CS1Profiler.Managers
         private bool isInitialized = false;
         private HarmonyLib.Harmony harmonyInstance;
         private int csvExportInterval = 60;
+        private float lastAllCsvExportTime = 0f;
         
         void Awake()
         {
@@ -77,6 +78,38 @@ namespace CS1Profiler.Managers
         public void SetCSVExportInterval(int seconds)
         {
             csvExportInterval = seconds;
+        }
+
+        void Update()
+        {
+            // 要件対応: F12キーでTop100をCSV出力
+            if (Input.GetKeyDown(KeyCode.F12))
+            {
+                if (csvManager != null)
+                {
+                    csvManager.ExportTopN(100);
+                }
+            }
+
+            // 要件対応: All CSVを定期的に自動出力（30秒間隔）
+            // 軽量化：処理が軽い生データ出力を使用
+            if (Time.time - lastAllCsvExportTime > 30f)
+            {
+                if (csvManager != null)
+                {
+                    csvManager.ExportAllRawData(); // 軽量版を使用
+                    lastAllCsvExportTime = Time.time;
+                }
+            }
+        }
+
+        // 要件対応: Settings画面から呼べるメソッド
+        public void ExportTop100FromSettings()
+        {
+            if (csvManager != null)
+            {
+                csvManager.ExportTopN(100);
+            }
         }
 
         public void ToggleProfiling()

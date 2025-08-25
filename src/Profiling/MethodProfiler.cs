@@ -170,6 +170,41 @@ namespace CS1Profiler.Profiling
             PerformanceProfiler.Reset();
             SpikeDetector.Reset();
         }
+
+        // 要件対応: CSV出力用のメソッドを追加
+        public static string GetCSVReportTopN(int topN)
+        {
+            var topMethods = PerformanceProfiler.GetTopMethods(topN);
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Rank,Method,AvgMs,MaxMs,TotalMs,Calls");
+            
+            for (int i = 0; i < topMethods.Count; i++)
+            {
+                var method = topMethods[i];
+                csv.AppendLine(string.Format("{0},{1},{2:F3},{3:F3},{4:F3},{5}",
+                    i + 1, method.MethodName, method.AverageMilliseconds, 
+                    method.MaxMilliseconds, method.TotalMilliseconds, method.CallCount));
+            }
+            
+            return csv.ToString();
+        }
+
+        // 軽量版: 生データをそのまま出力（外部で集計処理）
+        public static string GetCSVReportAll()
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Timestamp,Method,ExecutionTicks");
+            
+            // 生データを直接出力するため、PerformanceProfilerから生データを取得
+            return PerformanceProfiler.GetRawDataCSV();
+        }
+
+        // 要件対応: 統計をクリア
+        public static void Clear()
+        {
+            Reset();
+            UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler statistics cleared");
+        }
         
         // パッチ情報取得
         public static int GetPatchedMethodCount()

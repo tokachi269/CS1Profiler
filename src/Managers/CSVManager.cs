@@ -2,17 +2,19 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using CS1Profiler.Profiling;
 
 namespace CS1Profiler.Managers
 {
     /// <summary>
-    /// CSV出力管理クラス（軽量版）
+    /// CSV出力管理クラス（要件対応版）
     /// </summary>
     public class CSVManager
     {
-        private string _csvFilePath;
         private bool _csvInitialized = false;
-        private readonly List<string> _csvBuffer = new List<string>();
+        private string _gameDirectory;
+        private string _csvFilePath; // 後方互換性のため追加
+        private readonly List<string> _csvBuffer = new List<string>(); // 後方互換性のため追加
 
         public void Initialize()
         {
@@ -22,21 +24,20 @@ namespace CS1Profiler.Managers
             {
                 Debug.Log("[CS1Profiler] Starting CSV initialization...");
 
-                string gameDirectory = Application.dataPath;
-                if (gameDirectory.EndsWith("_Data"))
+                _gameDirectory = Application.dataPath;
+                if (_gameDirectory.EndsWith("_Data"))
                 {
-                    gameDirectory = Directory.GetParent(gameDirectory).FullName;
+                    _gameDirectory = Directory.GetParent(_gameDirectory).FullName;
                 }
 
+                // 後方互換性のため既存形式のCSVパスも設定
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-
-                // 出力先: ドキュメント配下の Cities_Skylines フォルダ (書き込み許可あり)
-                _csvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_{timestamp}.csv");
+                _csvFilePath = Path.Combine(_gameDirectory, $"CS1Profiler_{timestamp}.csv");
                 
                 _csvBuffer.Add("DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description");
                 
                 _csvInitialized = true;
-                Debug.Log($"[CS1Profiler] CSV initialized: {_csvFilePath}");
+                Debug.Log($"[CS1Profiler] CSV initialized. Output directory: {_gameDirectory}");
             }
             catch (Exception e)
             {
@@ -45,6 +46,85 @@ namespace CS1Profiler.Managers
             }
         }
 
+        // 要件対応: TopNをCSVに出力
+        public void ExportTopN(int topN)
+        {
+            if (!_csvInitialized)
+            {
+                Debug.LogError("[CS1Profiler] CSV not initialized");
+                return;
+            }
+
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"CS1Profiler_Top{topN}_{timestamp}.csv";
+                string filePath = Path.Combine(_gameDirectory, fileName);
+
+                string csvContent = MethodProfiler.GetCSVReportTopN(topN);
+                File.WriteAllText(filePath, csvContent);
+
+                Debug.Log($"[CS1Profiler] Top{topN} CSV exported: {filePath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] ExportTopN failed: {e.Message}");
+            }
+        }
+
+        // 要件対応: 全メソッドをCSVに出力
+        public void ExportAll()
+        {
+            if (!_csvInitialized)
+            {
+                Debug.LogError("[CS1Profiler] CSV not initialized");
+                return;
+            }
+
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"CS1Profiler_All_{timestamp}.csv";
+                string filePath = Path.Combine(_gameDirectory, fileName);
+
+                string csvContent = MethodProfiler.GetCSVReportAll();
+                File.WriteAllText(filePath, csvContent);
+
+                Debug.Log($"[CS1Profiler] All methods CSV exported: {filePath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] ExportAll failed: {e.Message}");
+            }
+        }
+
+        // 軽量版: 生データを直接出力（平均計算なし）
+        public void ExportAllRawData()
+        {
+            if (!_csvInitialized)
+            {
+                Debug.LogError("[CS1Profiler] CSV not initialized");
+                return;
+            }
+
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                string fileName = $"CS1Profiler_RawData_{timestamp}.csv";
+                string filePath = Path.Combine(_gameDirectory, fileName);
+
+                string csvContent = MethodProfiler.GetCSVReportAll(); // 既に軽量化済み
+                File.WriteAllText(filePath, csvContent);
+
+                Debug.Log($"[CS1Profiler] Raw data CSV exported: {filePath}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] ExportAllRawData failed: {e.Message}");
+            }
+        }
+
+        // 既存のQueueCsvWriteメソッドは後方互換性のため保持
         public void QueueCsvWrite(string category, string eventType, double durationMs, int count, double memoryMB, int rank, string description = "")
         {
             try

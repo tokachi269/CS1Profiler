@@ -435,6 +435,37 @@ namespace CS1Profiler
                 {
                     mainGroup.AddTextfield("CSV Control:", "Error: " + ex.Message, null);
                 }
+
+                // 要件対応: CSV出力ボタン
+                mainGroup.AddSpace(10);
+                mainGroup.AddButton("📊 Export Top100 CSV", () => {
+                    try
+                    {
+                        if (ProfilerManager.Instance != null)
+                        {
+                            ProfilerManager.Instance.ExportTop100FromSettings();
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.LogWarning("[CS1Profiler] ProfilerManager not available");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError("[CS1Profiler] Export Top100 failed: " + ex.Message);
+                    }
+                });
+
+                mainGroup.AddButton("🗑️ Clear Stats", () => {
+                    try
+                    {
+                        CS1Profiler.Profiling.MethodProfiler.Clear();
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError("[CS1Profiler] Clear stats failed: " + ex.Message);
+                    }
+                });
                 
                 // コントロール説明
                 mainGroup.AddSpace(10);

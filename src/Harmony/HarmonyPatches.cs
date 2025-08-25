@@ -24,6 +24,9 @@ namespace CS1Profiler
             patched = true;
             var harmony = new HarmonyLib.Harmony(HarmonyId);
 
+            // 要件対応: Manager/AI/Controller系クラスをターゲットにパッチング
+            ApplyPerformancePatches(harmony);
+
             // --- PackageDeserializerログ抑制パッチ ---
             try
             {
@@ -70,6 +73,81 @@ namespace CS1Profiler
             }
 
             UnityEngine.Debug.Log("[CS1Profiler] Startup analysis + performance monitoring patches complete.");
+        }
+
+        // 要件対応: Manager/AI/Controller系クラスの性能測定パッチ
+        private static void ApplyPerformancePatches(HarmonyLib.Harmony harmony)
+        {
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Applying performance measurement patches...");
+                
+                var targetAssemblies = new[] { "Assembly-CSharp", "ColossalFramework" };
+                var targetClassNames = new[] { "Manager", "AI", "Controller", "Loader", "Thread", "Service", "Simulation", "Render" };
+                var targetMethodNames = new[] { "SimulationStep", "Update", "LateUpdate", "Start", "Awake", "OnEnable", "OnDisable", "OnLevelLoaded", "OnLevelUnloading" };
+                
+                int patchCount = 0;
+                
+                foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    string assemblyName = assembly.GetName().Name;
+                    if (!System.Array.Exists(targetAssemblies, name => name == assemblyName)) continue;
+                    
+                    try
+                    {
+                        foreach (var type in assembly.GetTypes())
+                        {
+                            // ターゲットクラス名を含むクラスかチェック
+                            bool isTargetClass = false;
+                            foreach (var targetClass in targetClassNames)
+                            {
+                                if (type.Name.Contains(targetClass))
+                                {
+                                    isTargetClass = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!isTargetClass) continue;
+                            
+                            // ターゲットメソッドにパッチを適用
+                            foreach (var methodName in targetMethodNames)
+                            {
+                                try
+                                {
+                                    var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                                    foreach (var method in methods)
+                                    {
+                                        if (method.Name == methodName && !method.IsAbstract && !method.IsGenericMethod)
+                                        {
+                                            var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
+                                            var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
+                                            
+                                            harmony.Patch(method, prefix, postfix);
+                                            patchCount++;
+                                        }
+                                    }
+                                }
+                                catch (Exception e)
+                                {
+                                    // 個別メソッドの失敗はログのみ
+                                    UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to patch {type.Name}.{methodName}: {e.Message}");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to process assembly {assemblyName}: {e.Message}");
+                    }
+                }
+                
+                UnityEngine.Debug.Log($"[CS1Profiler] Applied {patchCount} performance measurement patches");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] ApplyPerformancePatches failed: " + e.Message);
+            }
         }
 
         private static void PatchStartupCriticalMethods(HarmonyLib.Harmony harmony)
@@ -513,7 +591,7 @@ namespace CS1Profiler
         }
 
         // LoadingExtension.OnCreated() のフック
-        public static void LoadingExtension_OnCreated_Pre(LoadingExtensionBase __instance)
+        public static void LoadingExtension_OnCreated_Pre(ICities.LoadingExtensionBase __instance)
         {
             try
             {
@@ -528,7 +606,7 @@ namespace CS1Profiler
             }
         }
 
-        public static void LoadingExtension_OnCreated_Post(LoadingExtensionBase __instance)
+        public static void LoadingExtension_OnCreated_Post(ICities.LoadingExtensionBase __instance)
         {
             try
             {
@@ -544,7 +622,7 @@ namespace CS1Profiler
         }
 
         // LoadingExtension.OnLevelLoaded() のフック
-        public static void LoadingExtension_OnLevelLoaded_Pre(LoadingExtensionBase __instance, LoadMode mode)
+        public static void LoadingExtension_OnLevelLoaded_Pre(ICities.LoadingExtensionBase __instance, ICities.LoadMode mode)
         {
             try
             {
@@ -729,6 +807,44 @@ namespace CS1Profiler
             {
                 UnityEngine.Debug.LogError("[CS1Profiler] HandleUnknownType_Replacement error: " + e.Message);
                 return true;
+            }
+        }
+    }
+
+    // 要件対応: 性能測定用のHooksクラス
+    public static class PerformanceHooks
+    {
+        // Prefix: メソッド開始時にタイムスタンプを記録
+        public static void ProfilerPrefix(MethodBase __originalMethod, out long __state)
+        {
+            try
+            {
+                string methodKey = __originalMethod.DeclaringType.Name + "." + __originalMethod.Name;
+                __state = System.Diagnostics.Stopwatch.GetTimestamp();
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] ProfilerPrefix error: " + e.Message);
+                __state = 0;
+            }
+        }
+
+        // Postfix: メソッド終了時に実行時間を計算してMethodProfilerに送信
+        public static void ProfilerPostfix(MethodBase __originalMethod, long __state)
+        {
+            try
+            {
+                if (__state == 0) return;
+                
+                long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - __state;
+                string methodKey = __originalMethod.DeclaringType.Name + "." + __originalMethod.Name;
+                
+                // 既存のPerformanceProfilerシステムを活用
+                CS1Profiler.Profiling.PerformanceProfiler.RecordMethodExecution(methodKey, elapsed);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] ProfilerPostfix error: " + e.Message);
             }
         }
     }

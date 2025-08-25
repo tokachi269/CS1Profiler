@@ -123,5 +123,72 @@ namespace CS1Profiler.Profiling
             _nextMethodId = 0;
             _methodIds.Clear();
         }
+
+        // 要件対応: HarmonyパッチからDirectで呼び出されるメソッド
+        public static void RecordMethodExecution(string methodKey, long elapsedTicks)
+        {
+            try
+            {
+                if (_nextMethodId >= MAX_METHODS) return;
+                
+                // メソッドキーからIDを検索または作成
+                int methodId = -1;
+                for (int i = 0; i < _nextMethodId; i++)
+                {
+                    if (_methodNames[i] == methodKey)
+                    {
+                        methodId = i;
+                        break;
+                    }
+                }
+                
+                if (methodId == -1)
+                {
+                    methodId = _nextMethodId++;
+                    if (methodId >= MAX_METHODS) return;
+                    _methodNames[methodId] = methodKey;
+                    _assemblyNames[methodId] = "HarmonyPatched";
+                }
+                
+                // 実行時間を記録
+                long ns = elapsedTicks * 1000000000L / Stopwatch.Frequency;
+                _totalNs[methodId] += ns;
+                _callCounts[methodId]++;
+                if (ns > _maxNs[methodId])
+                {
+                    _maxNs[methodId] = ns;
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] RecordMethodExecution error: " + e.Message);
+            }
+        }
+
+        // 軽量版: 生データを直接CSV形式で出力
+        public static string GetRawDataCSV()
+        {
+            var csv = new System.Text.StringBuilder();
+            csv.AppendLine("Method,TotalNs,CallCount,MaxNs");
+            
+            try
+            {
+                for (int i = 0; i < _nextMethodId; i++)
+                {
+                    if (_callCounts[i] > 0 && _methodNames[i] != null)
+                    {
+                        csv.AppendLine(string.Format("{0},{1},{2},{3}",
+                            _methodNames[i], _totalNs[i], _callCounts[i], _maxNs[i]));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] GetRawDataCSV error: " + e.Message);
+                csv.AppendLine("ERROR," + e.Message + ",0,0");
+            }
+            
+            return csv.ToString();
+        }
     }
 }

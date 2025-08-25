@@ -63,6 +63,28 @@ namespace CS1Profiler
 
             // ヘッダー
             GUILayout.Label("Performance Monitor", headerStyle);
+            
+            // 要件対応: RefreshとClearボタン
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Refresh"))
+            {
+                // 表示を更新（特別な処理は不要、次回描画で更新される）
+                Debug.Log("[CS1Profiler] Panel refreshed");
+            }
+            if (GUILayout.Button("Clear"))
+            {
+                try
+                {
+                    CS1Profiler.Profiling.MethodProfiler.Clear();
+                    Debug.Log("[CS1Profiler] Stats cleared from panel");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError("[CS1Profiler] Clear failed: " + e.Message);
+                }
+            }
+            GUILayout.EndHorizontal();
+            
             GUILayout.Space(10);
 
             scrollPosition = GUILayout.BeginScrollView(scrollPosition);
@@ -77,6 +99,57 @@ namespace CS1Profiler
                 
                 long memory = GC.GetTotalMemory(false) / 1024 / 1024;
                 GUILayout.Label($"Memory: {memory} MB", normalStyle);
+
+                GUILayout.Space(10);
+
+                // 要件対応: Top50メソッドの表示
+                GUILayout.Label("=== Top 50 Methods ===", headerStyle);
+                
+                try
+                {
+                    var topMethods = CS1Profiler.Profiling.PerformanceProfiler.GetTopMethods(50);
+                    
+                    if (topMethods.Count > 0)
+                    {
+                        // ヘッダー
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("Method", normalStyle, GUILayout.Width(200));
+                        GUILayout.Label("Avg(ms)", normalStyle, GUILayout.Width(60));
+                        GUILayout.Label("Max(ms)", normalStyle, GUILayout.Width(60));
+                        GUILayout.Label("Calls", normalStyle, GUILayout.Width(60));
+                        GUILayout.EndHorizontal();
+                        
+                        GUILayout.Space(5);
+                        
+                        // データ行
+                        for (int i = 0; i < topMethods.Count; i++)
+                        {
+                            var method = topMethods[i];
+                            GUILayout.BeginHorizontal();
+                            
+                            string methodName = method.MethodName;
+                            if (methodName.Length > 30)
+                            {
+                                methodName = methodName.Substring(0, 27) + "...";
+                            }
+                            
+                            GUILayout.Label(methodName, normalStyle, GUILayout.Width(200));
+                            GUILayout.Label(method.AverageMilliseconds.ToString("F2"), normalStyle, GUILayout.Width(60));
+                            GUILayout.Label(method.MaxMilliseconds.ToString("F2"), normalStyle, GUILayout.Width(60));
+                            GUILayout.Label(method.CallCount.ToString(), normalStyle, GUILayout.Width(60));
+                            
+                            GUILayout.EndHorizontal();
+                        }
+                    }
+                    else
+                    {
+                        GUILayout.Label("No method data available", normalStyle);
+                    }
+                }
+                catch (Exception e)
+                {
+                    GUILayout.Label("Error loading method data: " + e.Message, normalStyle);
+                }
                 
                 GUILayout.Label($"Frame: {Time.frameCount}", normalStyle);
                 
