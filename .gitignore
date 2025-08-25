@@ -27,5 +27,8 @@ Thumbs.db
 *.tmp
 *.temp
 
+# Analysis outputs
+analysis_output/
+tools/analysis_*/
 
 reference/
