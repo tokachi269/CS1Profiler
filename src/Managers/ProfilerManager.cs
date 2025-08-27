@@ -47,8 +47,7 @@ namespace CS1Profiler.Managers
                 csvManager = new CSVManager();
                 csvManager.Initialize();
                 
-                // Harmonyパッチ適用とログ抑制の初期化
-                CS1Profiler.Patcher.PatchAll();
+                // Harmonyパッチ適用はUserMod.OnEnabled()で既に実行済み
 
 
                 if (CitiesHarmony.API.HarmonyHelper.IsHarmonyInstalled)
@@ -77,6 +76,14 @@ namespace CS1Profiler.Managers
         {
             isProfilingEnabled = enabled;
             CS1Profiler.Profiling.MethodProfiler.SetEnabled(enabled);
+            
+            // プロファイリング無効時はCSVManagerも停止
+            if (csvManager != null)
+            {
+                csvManager.SetRecordingEnabled(enabled);
+            }
+            
+            Debug.Log($"[CS1Profiler] Profiling set to: {(enabled ? "ENABLED" : "DISABLED")}");
         }
 
         public void SetCSVExportInterval(int seconds)
@@ -86,40 +93,37 @@ namespace CS1Profiler.Managers
 
         void Update()
         {
+            // プロファイリングが無効な場合は何もしない
+            if (!isProfilingEnabled) return;
+            
             // 要件対応: F12キーでTop100をCSV出力
             if (Input.GetKeyDown(KeyCode.F12))
             {
-                /*
                 if (csvManager != null)
                 {
                     csvManager.ExportTopN(100);
                 }
-                */
             }
 
             // 要件対応: All CSVを定期的に自動出力（30秒間隔）
             // 軽量化：処理が軽い生データ出力を使用
             if (Time.time - lastAllCsvExportTime > 30f)
             {
-                /*
                 if (csvManager != null)
                 {
                     csvManager.ExportAllRawData(); // 軽量版を使用
                     lastAllCsvExportTime = Time.time;
                 }
-                */
             }
         }
 
-        // 要件対応: Settings画面から呼べるメソッド
+        // 要件対応: Settings画面から呼べるメソッド 
         public void ExportTop100FromSettings()
         {
-            /*
             if (csvManager != null)
             {
                 csvManager.ExportTopN(100);
             }
-            */
         }
 
         public void ToggleProfiling()
@@ -129,12 +133,10 @@ namespace CS1Profiler.Managers
 
         public void LogCurrentStats()
         {
-            /*
             if (csvManager != null)
             {
                 csvManager.LogCurrentStats();
             }
-            */
         }
 
         public void PrintDetailedStats()
@@ -144,17 +146,15 @@ namespace CS1Profiler.Managers
 
         public void ExportToCSV()
         {
-            /*
             if (csvManager != null)
             {
                 csvManager.ExportToCSV();
             }
-            */
         }
 
         public string GetCsvPath()
         {
-            return ""; // csvManager?.GetCsvPath() ?? "";
+            return csvManager?.GetCsvPath() ?? "CSV not initialized";
         }
 
         public bool IsProfilingEnabled()

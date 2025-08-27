@@ -8,13 +8,24 @@ using CS1Profiler.Profiling;
 namespace CS1Profiler.Managers
 {
     /// <summary>
-    /// CSV出力管理クラス（以前のフォーマット対応版）
+    /// CSV出力管理クラス（LoadingExtensionBase ライフサイクル対応）
     /// </summary>
     public class CSVManager
     {
-        private string _mainCsvFilePath;
+        // ゲーム状態別のファイルパス
+        private string _menuCsvFilePath;
+        private string _loadingCsvFilePath;
+        private string _inGameCsvFilePath;
         private bool _csvInitialized = false;
-        private readonly List<string> _csvBuffer = new List<string>();
+        
+        // 状態別のCSVバッファ
+        private readonly List<string> _menuCsvBuffer = new List<string>();
+        private readonly List<string> _loadingCsvBuffer = new List<string>();
+        private readonly List<string> _inGameCsvBuffer = new List<string>();
+        
+        // 現在の状態とレコーディング状態
+        private string _currentState = "MainMenu";
+        private bool _recordingEnabled = true; // 全体的な記録制御フラグ
 
         public void Initialize()
         {
@@ -30,20 +41,195 @@ namespace CS1Profiler.Managers
                     gameDirectory = Directory.GetParent(gameDirectory).FullName;
                 }
 
-                // 一つのファイルにすべてのデータを記録
+                // 状態別のCSVファイルを作成
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                _mainCsvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_{timestamp}.csv");
+                _menuCsvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_Menu_{timestamp}.csv");
+                _loadingCsvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_Loading_{timestamp}.csv");
+                _inGameCsvFilePath = Path.Combine(gameDirectory, $"CS1Profiler_InGame_{timestamp}.csv");
 
-                // 以前のフォーマットでヘッダーを設定
-                _csvBuffer.Add("DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description");
+                // 各ファイルのヘッダーを設定
+                string header = "DateTime,FrameCount,Category,EventType,Duration(ms),Count,MemoryMB,Rank,Description";
+                _menuCsvBuffer.Add(header);
+                _loadingCsvBuffer.Add(header);
+                _inGameCsvBuffer.Add(header);
                 
                 _csvInitialized = true;
-                Debug.Log($"[CS1Profiler] CSV initialized: {_mainCsvFilePath}");
+                Debug.Log($"[CS1Profiler] CSV initialized with state-based files:");
+                Debug.Log($"  Menu: {_menuCsvFilePath}");
+                Debug.Log($"  Loading: {_loadingCsvFilePath}");
+                Debug.Log($"  InGame: {_inGameCsvFilePath}");
             }
             catch (Exception e)
             {
                 Debug.LogError($"[CS1Profiler] CSV initialization failed: {e.Message}");
                 _csvInitialized = false;
+            }
+        }
+
+        /// <summary>
+        /// ゲーム状態変更（LoadingExtensionBase から呼び出される）
+        /// </summary>
+        public void SwitchGameState(string newState)
+        {
+            try
+            {
+                if (!_csvInitialized) Initialize();
+                
+                string previousState = _currentState;
+                _currentState = newState;
+                
+                // 前の状態のバッファをフラッシュ
+                FlushCurrentBuffer(previousState);
+                
+                LogStateTransition($"State changed to {newState}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] Error handling state change: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 状態遷移をログに記録
+        /// </summary>
+        private void LogStateTransition(string message)
+        {
+            try
+            {
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+                int frame = Time.frameCount;
+                double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
+                
+                string csvLine = $"{timestamp},{frame},System,StateChange,0,0,{memoryMB:F2},0,{message}";
+                
+                // 現在の状態に対応するバッファに追加
+                GetCurrentBuffer().Add(csvLine);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] Error logging state transition: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 記録の有効/無効を設定（ProfilerManagerから呼び出される）
+        /// </summary>
+        public void SetRecordingEnabled(bool enabled)
+        {
+            _recordingEnabled = enabled;
+            Debug.Log($"[CS1Profiler] CSV Recording set to: {(enabled ? "ENABLED" : "DISABLED")}");
+            
+            if (!enabled)
+            {
+                // 無効時は現在のバッファをフラッシュして停止メッセージを記録
+                string stopMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{Time.frameCount},System,RecordingStopped,0,0,0,0,RECORDING_DISABLED_BY_USER";
+                GetCurrentBuffer().Add(stopMessage);
+                FlushCurrentBuffer(_currentState);
+            }
+            else
+            {
+                // 有効時は開始メッセージを記録
+                string startMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{Time.frameCount},System,RecordingStarted,0,0,0,0,RECORDING_ENABLED_BY_USER";
+                GetCurrentBuffer().Add(startMessage);
+            }
+        }
+        
+        /// <summary>
+        /// 記録が有効かどうかを取得
+        /// </summary>
+        public bool IsRecordingEnabled()
+        {
+            return _recordingEnabled;
+        }
+
+        
+        /// <summary>
+        /// 現在の状態に対応するCSVバッファを取得
+        /// </summary>
+        private List<string> GetCurrentBuffer()
+        {
+            switch (_currentState)
+            {
+                case "MainMenu":
+                    return _menuCsvBuffer;
+                case "Loading":
+                    return _loadingCsvBuffer;
+                case "InGame":
+                case "InGameDelayed":
+                    return _inGameCsvBuffer;
+                default:
+                    return _menuCsvBuffer; // デフォルト
+            }
+        }
+        
+        /// <summary>
+        /// 指定した状態のバッファをファイルにフラッシュ
+        /// </summary>
+        private void FlushCurrentBuffer(string state)
+        {
+            try
+            {
+                List<string> buffer;
+                string filePath;
+                
+                switch (state)
+                {
+                    case "MainMenu":
+                        buffer = _menuCsvBuffer;
+                        filePath = _menuCsvFilePath;
+                        break;
+                    case "Loading":
+                        buffer = _loadingCsvBuffer;
+                        filePath = _loadingCsvFilePath;
+                        break;
+                    case "InGame":
+                    case "InGameDelayed":
+                        buffer = _inGameCsvBuffer;
+                        filePath = _inGameCsvFilePath;
+                        break;
+                    default:
+                        return;
+                }
+                
+                if (buffer.Count <= 1 || string.IsNullOrEmpty(filePath)) return; // ヘッダーのみの場合はスキップ
+                
+                FlushBufferToFile(buffer, filePath);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] Error flushing buffer for state {state}: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// バッファをファイルに書き込み
+        /// </summary>
+        private void FlushBufferToFile(List<string> buffer, string filePath)
+        {
+            if (buffer.Count == 0 || string.IsNullOrEmpty(filePath)) return;
+
+            try
+            {
+                // バッファのコピーを作成して、Collection modified エラーを回避
+                List<string> bufferCopy;
+                lock (buffer)
+                {
+                    bufferCopy = new List<string>(buffer);
+                    buffer.Clear();
+                }
+
+                using (StreamWriter writer = new StreamWriter(filePath, true))
+                {
+                    foreach (string line in bufferCopy)
+                    {
+                        writer.WriteLine(line);
+                    }
+                    writer.Flush();
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[CS1Profiler] CSV flush error: {e.Message}");
             }
         }
 
@@ -55,18 +241,25 @@ namespace CS1Profiler.Managers
                 if (!_csvInitialized) Initialize();
                 if (!_csvInitialized) return;
 
+                // 記録が無効な場合は何もしない
+                if (!_recordingEnabled) return;
+
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
                 int frame = Time.frameCount;
                 double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
 
                 string csvLine = $"{timestamp},{frame},Performance,MethodExecution,{durationMs:F3},{callCount},{memoryMB:F2},0,{methodName}";
                 
-                _csvBuffer.Add(csvLine);
-                
-                // バッファが大きくなりすぎた場合は即座にファイルに書き込み
-                if (_csvBuffer.Count > 100)
+                var buffer = GetCurrentBuffer();
+                lock (buffer)
                 {
-                    FlushCsvBuffer();
+                    buffer.Add(csvLine);
+                    
+                    // バッファが大きくなりすぎた場合は即座にファイルに書き込み
+                    if (buffer.Count > 100)
+                    {
+                        FlushCurrentBuffer(_currentState);
+                    }
                 }
             }
             catch (Exception e)
@@ -75,7 +268,7 @@ namespace CS1Profiler.Managers
             }
         }
 
-        // TopNデータをメインファイルに書き込み
+        // TopNデータを現在の状態のファイルに書き込み
         public void ExportTopN(int n)
         {
             try
@@ -91,7 +284,7 @@ namespace CS1Profiler.Managers
 
                 var sortedStats = stats.OrderByDescending(kvp => kvp.Value.TotalMs).Take(n).ToList();
                 
-                _csvBuffer.Add($"# === TOP {n} METHODS EXPORT ===");
+                // コメント行は削除 - CSVとして不正なため
                 
                 int rank = 1;
                 foreach (var kvp in sortedStats)
@@ -102,12 +295,12 @@ namespace CS1Profiler.Managers
                     double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
                     
                     string csvLine = $"{timestamp},{frame},Export,Top{n}Export,{data.AverageMs:F3},{data.CallCount},{memoryMB:F2},{rank},{kvp.Key}";
-                    _csvBuffer.Add(csvLine);
+                    GetCurrentBuffer().Add(csvLine);
                     rank++;
                 }
                 
-                FlushCsvBuffer();
-                Debug.Log($"[CS1Profiler] Top{n} data logged to main CSV file");
+                FlushCurrentBuffer(_currentState);
+                Debug.Log($"[CS1Profiler] Top{n} data logged to current state CSV file");
             }
             catch (Exception e)
             {
@@ -115,7 +308,7 @@ namespace CS1Profiler.Managers
             }
         }
 
-        // 全データをメインファイルに書き込み
+        // 全データを現在の状態のファイルに書き込み
         public void ExportAll()
         {
             try
@@ -131,8 +324,6 @@ namespace CS1Profiler.Managers
 
                 var sortedStats = stats.OrderByDescending(kvp => kvp.Value.TotalMs).ToList();
                 
-                _csvBuffer.Add("# === ALL METHODS EXPORT ===");
-                
                 int rank = 1;
                 foreach (var kvp in sortedStats)
                 {
@@ -142,12 +333,12 @@ namespace CS1Profiler.Managers
                     double memoryMB = GC.GetTotalMemory(false) / 1024.0 / 1024.0;
                     
                     string csvLine = $"{timestamp},{frame},Export,AllExport,{data.AverageMs:F3},{data.CallCount},{memoryMB:F2},{rank},{kvp.Key}";
-                    _csvBuffer.Add(csvLine);
+                    GetCurrentBuffer().Add(csvLine);
                     rank++;
                 }
                 
-                FlushCsvBuffer();
-                Debug.Log($"[CS1Profiler] All data logged to main CSV file");
+                FlushCurrentBuffer(_currentState);
+                Debug.Log($"[CS1Profiler] All data logged to current state CSV file");
             }
             catch (Exception e)
             {
@@ -178,11 +369,11 @@ namespace CS1Profiler.Managers
                 }
 
                 string csvLine = $"{timestamp},{frame},{category},{eventType},{durationMs:F3},{count},{memoryMB:F2},{rank},{description}";
-                _csvBuffer.Add(csvLine);
+                GetCurrentBuffer().Add(csvLine);
 
-                if (_csvBuffer.Count > 50)
+                if (GetCurrentBuffer().Count > 50)
                 {
-                    FlushCsvBuffer();
+                    FlushCurrentBuffer(_currentState);
                 }
             }
             catch (Exception e)
@@ -191,59 +382,61 @@ namespace CS1Profiler.Managers
             }
         }
 
+        /// <summary>
+        /// 古いFlushCsvBufferメソッド（削除予定）
+        /// </summary>
+        [Obsolete("Use FlushCurrentBuffer instead")]
         private void FlushCsvBuffer()
         {
-            if (!_csvInitialized || string.IsNullOrEmpty(_mainCsvFilePath) || _csvBuffer.Count == 0) return;
-
-            try
-            {
-                StreamWriter writer = null;
-                try
-                {
-                    writer = new StreamWriter(_mainCsvFilePath, true);
-                    foreach (string line in _csvBuffer)
-                    {
-                        writer.WriteLine(line);
-                    }
-                    writer.Flush();
-                }
-                finally
-                {
-                    if (writer != null)
-                    {
-                        writer.Close();
-                        writer = null;
-                    }
-                }
-                _csvBuffer.Clear();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[CS1Profiler] CSV flush error: {e.Message}");
-            }
+            FlushCurrentBuffer(_currentState);
         }
 
         public string GetCsvFilePath()
         {
-            return _mainCsvFilePath ?? "CSV not initialized";
+            switch (_currentState)
+            {
+                case "MainMenu":
+                    return _menuCsvFilePath ?? "Menu CSV not initialized";
+                case "Loading":
+                    return _loadingCsvFilePath ?? "Loading CSV not initialized";
+                case "InGame":
+                case "InGameDelayed":
+                    return _inGameCsvFilePath ?? "InGame CSV not initialized";
+                default:
+                    return "CSV not initialized";
+            }
         }
 
         public string GetCsvPath()
         {
-            return _mainCsvFilePath ?? "CS1Profiler_Unknown.csv";
+            return GetCsvFilePath();
         }
 
         public void Cleanup()
         {
             try
             {
-                if (_csvBuffer.Count > 0)
+                // 各状態のバッファに終了メッセージを追加
+                string endMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{Time.frameCount},System,ProfilingEnd,0,0,0,0,SESSION_END";
+                
+                if (_menuCsvBuffer.Count > 1)
                 {
-                    _csvBuffer.Add($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff},{Time.frameCount},System,ProfilingEnd,0,0,0,0,SESSION_END");
-                    FlushCsvBuffer();
+                    _menuCsvBuffer.Add(endMessage);
+                    FlushBufferToFile(_menuCsvBuffer, _menuCsvFilePath);
                 }
+                if (_loadingCsvBuffer.Count > 1)
+                {
+                    _loadingCsvBuffer.Add(endMessage);
+                    FlushBufferToFile(_loadingCsvBuffer, _loadingCsvFilePath);
+                }
+                if (_inGameCsvBuffer.Count > 1)
+                {
+                    _inGameCsvBuffer.Add(endMessage);
+                    FlushBufferToFile(_inGameCsvBuffer, _inGameCsvFilePath);
+                }
+                
                 _csvInitialized = false;
-                Debug.Log("[CS1Profiler] CSV cleanup completed");
+                Debug.Log("[CS1Profiler] CSV cleanup completed for all state files");
             }
             catch (Exception e)
             {
@@ -259,12 +452,20 @@ namespace CS1Profiler.Managers
 
         public void ExportToCSV()
         {
-            ExportAll(); // メインファイルに出力
+            ExportAll(); // 現在の状態のファイルに出力
         }
 
         public void QueuePerformanceData(object data)
         {
             Debug.Log("[CS1Profiler] QueuePerformanceData called but disabled for lightweight profiling");
+        }
+        
+        /// <summary>
+        /// 現在の記録状態を取得（デバッグ用）
+        /// </summary>
+        public string GetRecordingStatus()
+        {
+            return $"State: {_currentState}, Recording: {_recordingEnabled}, Files: Menu={_menuCsvFilePath != null}, Loading={_loadingCsvFilePath != null}, InGame={_inGameCsvFilePath != null}";
         }
     }
 }

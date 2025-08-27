@@ -327,9 +327,12 @@ class CS1ProfilerAnalyzer:
         print("   - *.png: 可視化グラフ")
 
 def main():
+    # 現在の日時を含むデフォルト出力ディレクトリ名を生成
+    default_output = f"analysis_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
     parser = argparse.ArgumentParser(description='CS1Profiler CSV Analysis Tool')
     parser.add_argument('csv_file', help='CS1ProfilerのCSVファイルパス')
-    parser.add_argument('-o', '--output', default='analysis_output', help='出力ディレクトリ (デフォルト: analysis_output)')
+    parser.add_argument('-o', '--output', default=default_output, help=f'出力ディレクトリ (デフォルト: {default_output})')
     parser.add_argument('-s', '--spike-multiplier', type=float, default=2.0, help='スパイク検出の閾値倍率 (デフォルト: 2.0)')
     
     args = parser.parse_args()

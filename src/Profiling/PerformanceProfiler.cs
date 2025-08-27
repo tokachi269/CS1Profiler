@@ -44,7 +44,13 @@ namespace CS1Profiler.Profiling
                 if (_currentMethodId >= MAX_METHODS) return;
                 
                 _methodIds[method] = _currentMethodId;
-                _methodNames[_currentMethodId] = method.DeclaringType?.Name + "." + method.Name;
+                
+                // Namespace.ClassName.MethodName の形式でメソッド名を構築
+                string namespaceName = method.DeclaringType?.Namespace ?? "Unknown";
+                string className = method.DeclaringType?.Name ?? "Unknown";
+                string methodName = method.Name ?? "Unknown";
+                _methodNames[_currentMethodId] = $"{namespaceName}.{className}.{methodName}";
+                
                 _assemblyNames[_currentMethodId] = method.DeclaringType?.Assembly.GetName().Name ?? "Unknown";
             }
             
@@ -171,6 +177,7 @@ namespace CS1Profiler.Profiling
                 catch (Exception csvEx)
                 {
                     // CSVエラーは無視してプロファイリングを続行
+                    UnityEngine.Debug.LogError("[CS1Profiler] CSV recording error: " + csvEx.Message);
                 }
             }
             catch (Exception e)

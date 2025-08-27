@@ -33,7 +33,9 @@ if errorlevel 1 (
 
 REM 解析実行
 echo 解析を開始します...
-python "%~dp0cs1_profiler_analyzer.py" "%LATEST_CSV%" -o "analysis_%date:~0,4%%date:~5,2%%date:~8,2%"
+set TIMESTAMP=%date:~0,4%%date:~5,2%%date:~8,2%_%time:~0,2%%time:~3,2%%time:~6,2%
+set TIMESTAMP=%TIMESTAMP: =0%
+python "%~dp0cs1_profiler_analyzer.py" "%LATEST_CSV%" -o "analysis_%TIMESTAMP%"
 
 echo.
 echo 解析完了! 結果フォルダを確認してください。

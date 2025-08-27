@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using CS1Profiler.Managers;
-using CS1Profiler.Harmony;
 using CS1Profiler.UI;
 
 namespace CS1Profiler
@@ -220,7 +219,10 @@ namespace CS1Profiler
         public override void OnLevelLoaded(LoadMode mode)
         {
             LogStartupEvent("LEVEL_LOADED", "Level loaded - Mode: " + mode.ToString());
-            UnityEngine.Debug.Log("[CS1Profiler] OnLevelLoaded - Mode: " + mode);
+            UnityEngine.Debug.Log($"[CS1Profiler] === OnLevelLoaded: Map Loaded (Mode: {mode}) ===");
+            
+            // ゲーム状態をInGameに変更
+            NotifyGameStateChanged("InGame");
             
             // ゲーム完全起動後の解析レポート生成
             if (_startupProfilingActive)
@@ -245,13 +247,20 @@ namespace CS1Profiler
         public override void OnCreated(ILoading loading)
         {
             LogStartupEvent("LOADING_CREATED", "Loading manager created");
-            UnityEngine.Debug.Log("[CS1Profiler] OnCreated");
+            UnityEngine.Debug.Log("[CS1Profiler] === OnCreated: Loading Started ===");
+            
+            // ゲーム状態をLoadingに変更
+            NotifyGameStateChanged("Loading");
         }
 
         public override void OnReleased()
         {
             LogStartupEvent("LOADING_RELEASED", "Loading manager released - cleanup initiated");
-            UnityEngine.Debug.Log("[CS1Profiler] OnReleased - Complete cleanup");
+            UnityEngine.Debug.Log("[CS1Profiler] === OnReleased: Back to Menu ===");
+            
+            // ゲーム状態をMainMenuに変更
+            NotifyGameStateChanged("MainMenu");
+            
             DestroyProfilerManager();
         }
 
@@ -381,8 +390,18 @@ namespace CS1Profiler
                                     bool currentState = ProfilerManager.Instance.IsProfilingEnabled();
                                     if (currentState != value)
                                     {
-                                        ProfilerManager.Instance.ToggleProfiling();
-                                        UnityEngine.Debug.Log("[CS1Profiler] Profiling toggled from options: " + (value ? "ENABLED" : "DISABLED"));
+                                        ProfilerManager.Instance.SetProfilingEnabled(value);
+                                        UnityEngine.Debug.Log("[CS1Profiler] Profiling set from options: " + (value ? "ENABLED" : "DISABLED"));
+                                        
+                                        // 設定変更をユーザーに通知
+                                        if (value)
+                                        {
+                                            UnityEngine.Debug.Log("[CS1Profiler] Performance monitoring and CSV recording started");
+                                        }
+                                        else
+                                        {
+                                            UnityEngine.Debug.Log("[CS1Profiler] Performance monitoring and CSV recording stopped");
+                                        }
                                     }
                                 }
                             }
@@ -405,68 +424,7 @@ namespace CS1Profiler
                         LogSuppressionHooks.SuppressPackageDeserializerLogs = value;
                         UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer log suppression: " + (value ? "ENABLED" : "DISABLED"));
                     });
-                
-                // CSV出力設定
-                mainGroup.AddSpace(5);
-                try
-                {
-                    mainGroup.AddCheckbox("Enable Auto CSV Output (30s):", 
-                        _csvAutoOutputEnabled, 
-                        (value) => {
-                            try
-                            {
-                                _csvAutoOutputEnabled = value;
-                                if (value)
-                                {
-                                    UnityEngine.Debug.Log("[CS1Profiler] Auto CSV output enabled");
-                                }
-                                else
-                                {
-                                    UnityEngine.Debug.Log("[CS1Profiler] Auto CSV output disabled");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                UnityEngine.Debug.LogError("[CS1Profiler] Error toggling CSV: " + ex.Message);
-                            }
-                        });
-                }
-                catch (Exception ex)
-                {
-                    mainGroup.AddTextfield("CSV Control:", "Error: " + ex.Message, null);
-                }
 
-                // 要件対応: CSV出力ボタン
-                mainGroup.AddSpace(10);
-                mainGroup.AddButton("📊 Export Top100 CSV", () => {
-                    try
-                    {
-                        if (ProfilerManager.Instance != null)
-                        {
-                            ProfilerManager.Instance.ExportTop100FromSettings();
-                        }
-                        else
-                        {
-                            UnityEngine.Debug.LogWarning("[CS1Profiler] ProfilerManager not available");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        UnityEngine.Debug.LogError("[CS1Profiler] Export Top100 failed: " + ex.Message);
-                    }
-                });
-
-                mainGroup.AddButton("🗑️ Clear Stats", () => {
-                    try
-                    {
-                        CS1Profiler.Profiling.MethodProfiler.Clear();
-                    }
-                    catch (Exception ex)
-                    {
-                        UnityEngine.Debug.LogError("[CS1Profiler] Clear stats failed: " + ex.Message);
-                    }
-                });
-                
                 // コントロール説明
                 mainGroup.AddSpace(10);
                 mainGroup.AddTextfield("Toggle Profiling:", "Press P key in-game", null);
@@ -529,6 +487,34 @@ namespace CS1Profiler
                 mainGroup.AddTextfield("Instance Reset:", "Click button above to reset + show performance panel", null);
                 mainGroup.AddTextfield("Performance Panel:", "Press P key or use button above", null);
                 
+                // クリップボード機能
+                mainGroup.AddSpace(10);
+                mainGroup.AddButton("📋 Copy Patched Methods List", () => {
+                    try
+                    {
+                        string patchedMethods = GetPatchedMethodsList();
+                        GUIUtility.systemCopyBuffer = patchedMethods;
+                        UnityEngine.Debug.Log("[CS1Profiler] Patched methods list copied to clipboard");
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError("[CS1Profiler] Copy patched methods failed: " + ex.Message);
+                    }
+                });
+                
+                mainGroup.AddButton("📋 Copy Mods List", () => {
+                    try
+                    {
+                        string modsList = GetModsList();
+                        GUIUtility.systemCopyBuffer = modsList;
+                        UnityEngine.Debug.Log("[CS1Profiler] MODs list copied to clipboard");
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError("[CS1Profiler] Copy MODs list failed: " + ex.Message);
+                    }
+                });
+                
                 // システム情報
                 mainGroup.AddSpace(10);
                 mainGroup.AddTextfield("MOD Version:", "1.0.0", null);
@@ -551,6 +537,75 @@ namespace CS1Profiler
                 {
                     UnityEngine.Debug.LogError("[CS1Profiler] Complete UI failure");
                 }
+            }
+        }
+        
+        // ===============================================
+        // 状態管理メソッド
+        // ===============================================
+        
+        /// <summary>
+        /// ゲーム状態変更をCSVManagerに通知
+        /// </summary>
+        private static void NotifyGameStateChanged(string newState)
+        {
+            try
+            {
+                var profilerManager = ProfilerManager.Instance;
+                if (profilerManager?.CsvManager != null)
+                {
+                    // プロファイリングが無効な場合は状態変更も通知しない
+                    if (!profilerManager.IsProfilingEnabled()) return;
+                    
+                    UnityEngine.Debug.Log($"[CS1Profiler] Game state changed to: {newState}");
+                    
+                    // CSVManagerの状態切り替えメソッドを呼び出し
+                    // SwitchGameState メソッドを CSVManager に追加する
+                    var csvManager = profilerManager.CsvManager;
+                    if (csvManager != null)
+                    {
+                        // リフレクションまたは新メソッドで状態変更を通知
+                        csvManager.SwitchGameState(newState);
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning("[CS1Profiler] ProfilerManager or CSVManager not available for state change");
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] Error notifying game state change: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// パッチ済みメソッドのリストを取得
+        /// </summary>
+        private string GetPatchedMethodsList()
+        {
+            try
+            {
+                return CS1Profiler.PerformancePatches.GetPatchedMethodsList();
+            }
+            catch (Exception e)
+            {
+                return $"Error retrieving patched methods: {e.Message}";
+            }
+        }
+        
+        /// <summary>
+        /// 検出されたMODのリストを取得
+        /// </summary>
+        private string GetModsList()
+        {
+            try
+            {
+                return CS1Profiler.PerformancePatches.GetModsList();
+            }
+            catch (Exception e)
+            {
+                return $"Error retrieving MOD list: {e.Message}";
             }
         }
     }

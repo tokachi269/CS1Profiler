@@ -40,7 +40,11 @@
     <Compile Include="src\Profiling\ProfileData.cs" />
     <!-- Harmony: パッチとフック処理 -->
     <Compile Include="src\Harmony\HarmonyPatches.cs" />
+    <Compile Include="src\Harmony\PerformancePatches.cs" />
+    <Compile Include="src\Harmony\StartupPatches.cs" />
+    <Compile Include="src\Harmony\RenderItOptimization.cs" />
     <Compile Include="src\Harmony\LogSuppressionHooks.cs" />
+    <Compile Include="src\Harmony\HookClasses.cs" />
     <!-- UI: ユーザーインターフェイス -->
     <Compile Include="src\UI\PerformancePanel.cs" />
     <Compile Include="src\UI\UIManager.cs" />
