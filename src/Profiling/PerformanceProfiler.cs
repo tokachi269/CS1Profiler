@@ -168,7 +168,7 @@ namespace CS1Profiler.Profiling
                         CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.LogMethodExecution(methodKey, executionTimeMs, _callCounts[methodId]);
                     }
                 }
-                catch (Exception csvEx)
+                catch
                 {
                     // CSVエラーは無視してプロファイリングを続行
                 }

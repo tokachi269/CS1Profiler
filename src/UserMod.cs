@@ -61,7 +61,7 @@ namespace CS1Profiler
             }
             
             // Harmonyパッチを初期化
-            CS1Profiler.Patcher.PatchAll();
+            CS1Profiler.Harmony.MainPatcher.PatchAll();
             
             InitializeProfilerManager();
             InitializePerformanceSystem();
@@ -122,6 +122,7 @@ namespace CS1Profiler
                         UnityEngine.Debug.Log("[CS1Profiler] Manual CSV export triggered");
                     }
                 }
+                // 他のキーは削除（ショートカット不要）
             }
             
             // PerformancePanelを直接描画
@@ -162,7 +163,7 @@ namespace CS1Profiler
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled ===");
             
             // Harmonyパッチをクリーンアップ
-            CS1Profiler.Patcher.UnpatchAll();
+            CS1Profiler.Harmony.MainPatcher.UnpatchAll();
             
             DestroyProfilerManager();
             UnityEngine.Debug.Log("[CS1Profiler] === MOD OnDisabled COMPLETED ===");
@@ -400,11 +401,49 @@ namespace CS1Profiler
                 // ログ抑制設定
                 mainGroup.AddSpace(5);
                 mainGroup.AddCheckbox("Suppress PackageDeserializer Warnings:", 
-                    LogSuppressionHooks.SuppressPackageDeserializerLogs, 
+                    CS1Profiler.Harmony.LogSuppressionHooks.SuppressPackageDeserializerLogs, 
                     (value) => {
-                        LogSuppressionHooks.SuppressPackageDeserializerLogs = value;
+                        CS1Profiler.Harmony.LogSuppressionHooks.SuppressPackageDeserializerLogs = value;
                         UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer log suppression: " + (value ? "ENABLED" : "DISABLED"));
                     });
+
+                // 統一されたパッチ制御設定
+                mainGroup.AddSpace(10);
+                var patchGroup = helper.AddGroup("Patch Control (Performance Impact)");
+                
+                patchGroup.AddCheckbox("Performance Profiling (Heavy Impact):", 
+                    CS1Profiler.Harmony.PatchController.PerformanceProfilingEnabled, 
+                    (value) => {
+                        CS1Profiler.Harmony.PatchController.PerformanceProfilingEnabled = value;
+                        UnityEngine.Debug.Log("[CS1Profiler] Performance profiling: " + (value ? "ENABLED" : "DISABLED"));
+                    });
+                
+                patchGroup.AddCheckbox("Simulation Step Profiling (Medium Impact):", 
+                    CS1Profiler.Harmony.PatchController.SimulationProfilingEnabled, 
+                    (value) => {
+                        CS1Profiler.Harmony.PatchController.SimulationProfilingEnabled = value;
+                        UnityEngine.Debug.Log("[CS1Profiler] Simulation profiling: " + (value ? "ENABLED" : "DISABLED"));
+                    });
+                
+                patchGroup.AddCheckbox("Startup Analysis (Low Impact):", 
+                    CS1Profiler.Harmony.PatchController.StartupAnalysisEnabled, 
+                    (value) => {
+                        CS1Profiler.Harmony.PatchController.StartupAnalysisEnabled = value;
+                        UnityEngine.Debug.Log("[CS1Profiler] Startup analysis: " + (value ? "ENABLED" : "DISABLED"));
+                    });
+
+                // 一括制御ボタン
+                patchGroup.AddSpace(5);
+                patchGroup.AddButton("🚀 Lightweight Mode (All OFF)", () => {
+                    CS1Profiler.Harmony.PatchController.EnableLightweightMode();
+                });
+                
+                patchGroup.AddButton("📊 Analysis Mode (All ON)", () => {
+                    CS1Profiler.Harmony.PatchController.EnableAnalysisMode();
+                });
+                
+                // 現在の状態表示
+                patchGroup.AddTextfield("Current Status:", CS1Profiler.Harmony.PatchController.GetCurrentStatus(), null);
                 
                 // CSV出力設定
                 mainGroup.AddSpace(5);
@@ -469,9 +508,10 @@ namespace CS1Profiler
                 
                 // コントロール説明
                 mainGroup.AddSpace(10);
-                mainGroup.AddTextfield("Toggle Profiling:", "Press P key in-game", null);
-                mainGroup.AddTextfield("Show/Hide Log:", "Press L key in-game", null);  
-                mainGroup.AddTextfield("Reset Statistics:", "Press R key in-game", null);
+                mainGroup.AddTextfield("Toggle Panel:", "Press P key in-game", null);
+                mainGroup.AddTextfield("Export CSV:", "Press F12 key in-game", null);
+                mainGroup.AddTextfield("Toggle Performance:", "Press F10 key in-game", null);
+                mainGroup.AddTextfield("Status:", "Settings available in Options panel", null);
                 
                 // インスタンス管理機能
                 mainGroup.AddSpace(10);

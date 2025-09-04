@@ -39,8 +39,13 @@
     <Compile Include="src\Profiling\SpikeDetector.cs" />
     <Compile Include="src\Profiling\ProfileData.cs" />
     <!-- Harmony: パッチとフック処理 -->
-    <Compile Include="src\Harmony\HarmonyPatches.cs" />
-    <Compile Include="src\Harmony\LogSuppressionHooks.cs" />
+    <Compile Include="src\Harmony\PatchController.cs" />
+    <Compile Include="src\Harmony\MainPatcher.cs" />
+    <Compile Include="src\Harmony\PerformancePatcher.cs" />
+    <Compile Include="src\Harmony\StartupAnalysisPatcher.cs" />
+    <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
+    <Compile Include="src\Harmony\SimulationPatcher.cs" />
+    <Compile Include="src\Harmony\SimulationStepPatch.cs" />
     <!-- UI: ユーザーインターフェイス -->
     <Compile Include="src\UI\PerformancePanel.cs" />
     <Compile Include="src\UI\UIManager.cs" />

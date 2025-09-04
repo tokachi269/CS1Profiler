@@ -48,7 +48,7 @@ namespace CS1Profiler.Managers
                 csvManager.Initialize();
                 
                 // Harmonyパッチ適用とログ抑制の初期化
-                CS1Profiler.Patcher.PatchAll();
+                CS1Profiler.Harmony.MainPatcher.PatchAll();
 
 
                 if (CitiesHarmony.API.HarmonyHelper.IsHarmonyInstalled)

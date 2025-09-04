@@ -53,7 +53,9 @@ namespace CS1Profiler.Harmony
             try
             {
                 _currentMethod = __originalMethod;
-                _stopwatch.Restart();
+                _stopwatch.Stop();
+                _stopwatch.Reset();
+                _stopwatch.Start();
                 
                 // MethodProfilerにメソッド開始を通知
                 CS1Profiler.Profiling.MethodProfiler.MethodStart(__originalMethod);
