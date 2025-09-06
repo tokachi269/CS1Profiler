@@ -1,7 +1,8 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -49,11 +50,11 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                UnityEngine.Debug.Log("[CS1Profiler] Log suppression patches applied");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Log suppression patches applied");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] PackageDeserializer log suppression replacement patch failed: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} PackageDeserializer log suppression replacement patch failed: " + e.Message);
             }
         }
     }
@@ -102,7 +103,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] ResolveLegacyMember_Prefix error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} ResolveLegacyMember_Prefix error: " + e.Message);
                 return true; // エラー時は元のメソッドを実行
             }
         }
@@ -145,7 +146,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] ResolveLegacyType_Replacement error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} ResolveLegacyType_Replacement error: " + e.Message);
                 return true;
             }
         }
@@ -187,7 +188,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] HandleUnknownType_Replacement error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} HandleUnknownType_Replacement error: " + e.Message);
                 return true;
             }
         }

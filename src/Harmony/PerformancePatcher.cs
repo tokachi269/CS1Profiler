@@ -1,9 +1,10 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -22,7 +23,7 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Removing performance measurement patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removing performance measurement patches...");
                 
                 int removedCount = 0;
                 foreach (var method in patchedMethods)
@@ -36,16 +37,16 @@ namespace CS1Profiler.Harmony
                     }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to remove patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to remove patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
                     }
                 }
                 
                 patchedMethods.Clear();
-                UnityEngine.Debug.Log($"[CS1Profiler] Removed {removedCount} performance patches");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removed {removedCount} performance patches");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] RemovePatches error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} RemovePatches error: {e.Message}");
             }
         }
         public static void ApplyBlacklistPatches(HarmonyLib.Harmony harmony, HashSet<string> modAssemblyNames, HashSet<string> modTypeNames)
@@ -92,15 +93,15 @@ namespace CS1Profiler.Harmony
                     }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to process assembly {assemblyName}: {e.Message}");
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to process assembly {assemblyName}: {e.Message}");
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] Applied {patchCount} performance patches using blacklist system");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applied {patchCount} performance patches using blacklist system");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] ApplyBlacklistPatches error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} ApplyBlacklistPatches error: {e.Message}");
             }
         }
         

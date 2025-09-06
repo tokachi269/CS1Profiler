@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {
@@ -92,12 +93,12 @@ namespace CS1Profiler.Profiling
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] CSV loaded: {_records.Count} records from {filePath}");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} CSV loaded: {_records.Count} records from {filePath}");
                 return _records.Count > 0;
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] CSV load failed: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} CSV load failed: {e.Message}");
                 return false;
             }
         }
@@ -267,11 +268,11 @@ namespace CS1Profiler.Profiling
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] Statistics exported to: {outputPath}");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Statistics exported to: {outputPath}");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Export failed: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Export failed: {e.Message}");
             }
         }
 
@@ -288,13 +289,13 @@ namespace CS1Profiler.Profiling
         /// </summary>
         public void PrintStatisticsSummary(List<MethodStatistics> methodStats, int topCount = 10)
         {
-            UnityEngine.Debug.Log($"[CS1Profiler] === Performance Statistics Summary (Top {topCount}) ===");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === Performance Statistics Summary (Top {topCount}) ===");
             
             var topMethods = methodStats.Take(topCount).ToList();
             
             foreach (var stat in topMethods)
             {
-                UnityEngine.Debug.Log($"[CS1Profiler] {stat.MethodName}:");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {stat.MethodName}:");
                 UnityEngine.Debug.Log($"  Total: {stat.AverageTotalDurationPerFrame:F2}ms/frame, Calls: {stat.TotalCalls}, Spikes: {stat.SpikeCount}");
                 UnityEngine.Debug.Log($"  Avg: {stat.AverageDurationMs:F3}ms, Max: {stat.MaxDurationMs:F3}ms, StdDev: {stat.StandardDeviation:F3}ms");
             }

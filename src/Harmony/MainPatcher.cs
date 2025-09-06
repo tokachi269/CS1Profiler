@@ -1,4 +1,4 @@
-using ColossalFramework;
+﻿using ColossalFramework;
 using ColossalFramework.Plugins;
 using HarmonyLib;
 using ICities;
@@ -10,6 +10,7 @@ using System.Reflection.Emit;
 using System.Linq;
 using UnityEngine;
 using CS1Profiler.Managers;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -32,12 +33,12 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Enabling performance patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling performance patches...");
                 ApplyPerformancePatches(harmonyInstance);
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Failed to enable performance patches: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable performance patches: " + e.Message);
             }
         }
 
@@ -50,12 +51,12 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Disabling performance patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling performance patches...");
                 PerformancePatcher.RemovePatches(harmonyInstance);
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Failed to disable performance patches: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable performance patches: " + e.Message);
             }
         }
 
@@ -68,12 +69,12 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Enabling simulation patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling simulation patches...");
                 SimulationPatcher.ApplyPatches(harmonyInstance);
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Failed to enable simulation patches: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable simulation patches: " + e.Message);
             }
         }
 
@@ -86,12 +87,12 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Disabling simulation patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling simulation patches...");
                 SimulationPatcher.RemovePatches(harmonyInstance);
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Failed to disable simulation patches: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable simulation patches: " + e.Message);
             }
         }
 
@@ -108,22 +109,22 @@ namespace CS1Profiler.Harmony
             // --- PackageDeserializerログ抑制パッチ ---
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Applying log suppression patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applying log suppression patches...");
                 LogSuppressionPatcher.ApplyPatches(harmonyInstance);
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Log suppression patches failed: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Log suppression patches failed: " + e.Message);
             }
 
             // --- 起動時解析は手動開始に変更（StartupAnalysisPatcher削除） ---
-            UnityEngine.Debug.Log("[CS1Profiler] Startup analysis moved to manual activation via UI button.");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Startup analysis moved to manual activation via UI button.");
 
-            UnityEngine.Debug.Log("[CS1Profiler] Essential patches applied. Performance measurement patches disabled by default.");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Essential patches applied. Performance measurement patches disabled by default.");
             
             // PatchControllerの初期状態をログ出力
             var status = PatchController.GetStatusString();
-            UnityEngine.Debug.Log($"[CS1Profiler] Initial Patch Status: {status}");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Initial Patch Status: {status}");
         }
 
         // パフォーマンス測定用のブラックリストシステム
@@ -135,7 +136,7 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Applying performance measurement patches (unified blacklist system)...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applying performance measurement patches (unified blacklist system)...");
                 
                 // MOD検出
                 DetectRealModAssemblies();
@@ -143,11 +144,11 @@ namespace CS1Profiler.Harmony
                 // 統一されたパッチシステム
                 PerformancePatcher.ApplyBlacklistPatches(harmony, _modAssemblyNames, _modTypeNames);
                 
-                UnityEngine.Debug.Log("[CS1Profiler] Performance measurement patches applied");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance measurement patches applied");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] ApplyPerformancePatches failed: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} ApplyPerformancePatches failed: " + e.Message);
             }
         }
         
@@ -155,7 +156,7 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Detecting MOD assemblies...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Detecting MOD assemblies...");
                 
                 var pluginManager = PluginManager.instance;
                 if (pluginManager?.GetPluginsInfo() == null) return;
@@ -191,11 +192,11 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] Detected {_modAssemblyNames.Count} MOD assemblies, {_modTypeNames.Count} critical types");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Detected {_modAssemblyNames.Count} MOD assemblies, {_modTypeNames.Count} critical types");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] DetectRealModAssemblies error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} DetectRealModAssemblies error: {e.Message}");
             }
         }
 
@@ -232,18 +233,18 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Removing all Harmony patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removing all Harmony patches...");
                 if (harmonyInstance != null)
                 {
                     harmonyInstance.UnpatchAll(HarmonyId);
                 }
                 patched = false;
                 harmonyInstance = null;
-                UnityEngine.Debug.Log("[CS1Profiler] All patches removed successfully.");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} All patches removed successfully.");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Failed to remove patches: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove patches: " + e.Message);
             }
         }
     }

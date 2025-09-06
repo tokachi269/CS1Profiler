@@ -1,9 +1,10 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -37,11 +38,11 @@ namespace CS1Profiler.Harmony
                 ApplyPatches(harmony);
                 
                 IsEnabled = true;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches enabled: {patchedMethods.Count} methods");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches enabled: {patchedMethods.Count} methods");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 
                 // 性能測定には全パッチが必要なため、部分的成功は許可しない
                 IsEnabled = false;
@@ -70,17 +71,17 @@ namespace CS1Profiler.Harmony
                     }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to remove patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to remove patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
                     }
                 }
                 
                 patchedMethods.Clear();
                 IsEnabled = false;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches disabled: {removedCount} methods removed");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches disabled: {removedCount} methods removed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -125,7 +126,7 @@ namespace CS1Profiler.Harmony
                 }
             }
             
-            UnityEngine.Debug.Log($"[CS1Profiler] Performance patches applied: {successCount} methods");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance patches applied: {successCount} methods");
         }
         
         private bool IsMethodSafeForPatching(MethodInfo method)
@@ -267,7 +268,7 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log($"[CS1Profiler] Enabling {Name} patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling {Name} patches...");
                 
                 var simType = typeof(SimulationManager);
                 var simMethod = simType.GetMethod("SimulationStepImpl", 
@@ -295,11 +296,11 @@ namespace CS1Profiler.Harmony
                 }
 
                 IsEnabled = true;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches enabled: {patchedMethods.Count} methods");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches enabled: {patchedMethods.Count} methods");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -310,7 +311,7 @@ namespace CS1Profiler.Harmony
 
             try
             {
-                UnityEngine.Debug.Log($"[CS1Profiler] Disabling {Name} patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling {Name} patches...");
                 
                 foreach (var method in patchedMethods)
                 {
@@ -322,11 +323,11 @@ namespace CS1Profiler.Harmony
                 
                 patchedMethods.Clear();
                 IsEnabled = false;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -349,11 +350,11 @@ namespace CS1Profiler.Harmony
             {
                 LogSuppressionPatcher.ApplyPatches(harmony);
                 IsEnabled = true;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches enabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches enabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -366,11 +367,11 @@ namespace CS1Profiler.Harmony
             {
                 // LogSuppressionPatcherにRemove機能が必要
                 IsEnabled = false;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -392,12 +393,12 @@ namespace CS1Profiler.Harmony
             try
             {
                 // StartupAnalysisPatcher削除：手動プロファイリングに統合
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} moved to manual profiling via MPSC system");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} moved to manual profiling via MPSC system");
                 IsEnabled = true;
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -410,11 +411,11 @@ namespace CS1Profiler.Harmony
             {
                 // 何もしない（MPSCシステムで管理）
                 IsEnabled = false;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -443,11 +444,11 @@ namespace CS1Profiler.Harmony
                 CS1Profiler.RenderItOptimization.ApplyRenderItOptimizationPatches(harmony);
                 
                 IsEnabled = true;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches enabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches enabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -462,11 +463,11 @@ namespace CS1Profiler.Harmony
                 CS1Profiler.RenderItOptimizationHooks.ClearCache();
                 
                 IsEnabled = false;
-                UnityEngine.Debug.Log($"[CS1Profiler] {Name} patches disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable {Name} patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable {Name} patches: {e.Message}");
                 throw;
             }
         }
@@ -490,11 +491,11 @@ namespace CS1Profiler.Harmony
             {
                 PloppableAsphaltFixOptimization.Enable(harmony);
                 IsEnabled = true;
-                UnityEngine.Debug.Log("[CS1Profiler] PloppableAsphaltFix optimization patches enabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix optimization patches enabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable PloppableAsphaltFix optimization patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable PloppableAsphaltFix optimization patches: {e.Message}");
                 throw;
             }
         }
@@ -507,11 +508,11 @@ namespace CS1Profiler.Harmony
             {
                 PloppableAsphaltFixOptimization.Disable();
                 IsEnabled = false;
-                UnityEngine.Debug.Log("[CS1Profiler] PloppableAsphaltFix optimization patches disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix optimization patches disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable PloppableAsphaltFix optimization patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable PloppableAsphaltFix optimization patches: {e.Message}");
                 throw;
             }
         }

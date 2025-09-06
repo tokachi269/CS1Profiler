@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
 using CS1Profiler.Profiling;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Managers
 {
@@ -39,11 +40,11 @@ namespace CS1Profiler.Managers
                 }
                 
                 _csvInitialized = true;
-                Debug.Log(string.Format("[CS1Profiler] CSV initialized: {0}", _mainCsvFilePath));
+                Debug.Log(string.Format($"{Constants.LOG_PREFIX} CSV initialized: {0}", _mainCsvFilePath));
             }
             catch (Exception e)
             {
-                Debug.LogError(string.Format("[CS1Profiler] CSV initialization failed: {0}", e.Message));
+                Debug.LogError(string.Format($"{Constants.LOG_PREFIX} CSV initialization failed: {0}", e.Message));
                 _csvInitialized = false;
             }
         }
@@ -53,19 +54,19 @@ namespace CS1Profiler.Managers
         {
             // MPSC Logger に移譲（レガシー互換性）
             // 新システムでは LightweightPerformanceHooks が直接 MPSCLogger を使用
-            Debug.LogWarning("[CS1Profiler] LogMethodExecution is deprecated. Use MPSC system instead.");
+            Debug.LogWarning($"{Constants.LOG_PREFIX} LogMethodExecution is deprecated. Use MPSC system instead.");
         }
 
         // 一括出力：配列から直接CSV作成（最小限フォーマット）
         public void ExportAll()
         {
-            Debug.LogWarning("[CS1Profiler] ExportAll is deprecated. Use MPSC system instead.");
+            Debug.LogWarning($"{Constants.LOG_PREFIX} ExportAll is deprecated. Use MPSC system instead.");
         }
 
         // 生データを書き込み（平均計算なし）
         public void ExportAllRawData()
         {
-            Debug.LogWarning("[CS1Profiler] ExportAllRawData is deprecated. Use MPSC system instead.");
+            Debug.LogWarning($"{Constants.LOG_PREFIX} ExportAllRawData is deprecated. Use MPSC system instead.");
         }
 
         public string GetCsvPath()
@@ -84,11 +85,11 @@ namespace CS1Profiler.Managers
             {
                 // 新システムでは何もしない（MPSCが処理）
                 _csvInitialized = false;
-                Debug.Log("[CS1Profiler] CSV cleanup completed (legacy mode)");
+                Debug.Log($"{Constants.LOG_PREFIX} CSV cleanup completed (legacy mode)");
             }
             catch (Exception e)
             {
-                Debug.LogError(string.Format("[CS1Profiler] CSV cleanup error: {0}", e.Message));
+                Debug.LogError(string.Format($"{Constants.LOG_PREFIX} CSV cleanup error: {0}", e.Message));
             }
         }
 

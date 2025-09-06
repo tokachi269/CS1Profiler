@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler
 {

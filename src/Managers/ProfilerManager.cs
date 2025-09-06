@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 // 明示的に追加（同じ名前空間だが必要な場合）
 using CS1Profiler.Managers;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Managers
 {
@@ -42,7 +43,7 @@ namespace CS1Profiler.Managers
             {
                 if (isInitialized) return;
 
-                Debug.Log("[CS1Profiler] ProfilingManager initializing...");
+                Debug.Log($"{Constants.LOG_PREFIX} ProfilingManager initializing...");
                 
                 csvManager = new CSVManager();
                 csvManager.Initialize();
@@ -56,19 +57,19 @@ namespace CS1Profiler.Managers
                     harmonyInstance = new HarmonyLib.Harmony("CS1Profiler.MethodProfiler");
                     CS1Profiler.Profiling.MethodProfiler.Initialize(harmonyInstance);
                     isProfilingEnabled = true;
-                    Debug.Log("[CS1Profiler] MethodProfiler initialized with Harmony");
+                    Debug.Log($"{Constants.LOG_PREFIX} MethodProfiler initialized with Harmony");
                 }
                 else
                 {
-                    Debug.LogWarning("[CS1Profiler] Harmony is not installed, MethodProfiler disabled");
+                    Debug.LogWarning($"{Constants.LOG_PREFIX} Harmony is not installed, MethodProfiler disabled");
                 }
 
                 isInitialized = true;
-                Debug.Log("[CS1Profiler] ProfilingManager initialized successfully");
+                Debug.Log($"{Constants.LOG_PREFIX} ProfilingManager initialized successfully");
             }
             catch (Exception e)
             {
-                Debug.LogError("[CS1Profiler] ProfilingManager.Initialize error: " + e.Message);
+                Debug.LogError($"{Constants.LOG_PREFIX} ProfilingManager.Initialize error: " + e.Message);
             }
         }
 

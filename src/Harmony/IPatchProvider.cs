@@ -1,5 +1,6 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {

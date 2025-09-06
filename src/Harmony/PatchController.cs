@@ -1,8 +1,9 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using UnityEngine;
 using CS1Profiler.Managers;
 using CS1Profiler.Profiling;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -34,7 +35,7 @@ namespace CS1Profiler.Harmony
                 return;
             }
 
-            UnityEngine.Debug.Log("[CS1Profiler] Initializing patch management system...");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Initializing patch management system...");
             
             try
             {
@@ -44,11 +45,11 @@ namespace CS1Profiler.Harmony
                 ApplyDefaultPatches();
                 
                 _initialized = true;
-                UnityEngine.Debug.Log("[CS1Profiler] Patch system initialized - Mode: Lightweight");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Patch system initialized - Mode: Lightweight");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to initialize patch system: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to initialize patch system: {e.Message}");
                 throw;
             }
         }
@@ -70,12 +71,12 @@ namespace CS1Profiler.Harmony
                     if (value)
                     {
                         CS1Profiler.Profiling.MPSCLogger.StartWriter();
-                        UnityEngine.Debug.Log("[CS1Profiler] MPSC Performance profiling enabled");
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MPSC Performance profiling enabled");
                     }
                     else
                     {
                         CS1Profiler.Profiling.MPSCLogger.StopWriter();
-                        UnityEngine.Debug.Log("[CS1Profiler] MPSC Performance profiling disabled");
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MPSC Performance profiling disabled");
                     }
                 }
             }
@@ -159,10 +160,10 @@ namespace CS1Profiler.Harmony
         {
             EnsureInitialized();
             
-            UnityEngine.Debug.Log("[CS1Profiler] Switching to Lightweight Mode...");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Switching to Lightweight Mode...");
             PerformanceProfilingEnabled = false;
             SimulationProfilingEnabled = false;
-            UnityEngine.Debug.Log("[CS1Profiler] 🏃‍♂️ Lightweight Mode enabled - zero measurement overhead");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} 🏃‍♂️ Lightweight Mode enabled - zero measurement overhead");
         }
 
         /// <summary>
@@ -172,10 +173,10 @@ namespace CS1Profiler.Harmony
         {
             EnsureInitialized();
             
-            UnityEngine.Debug.Log("[CS1Profiler] Switching to Analysis Mode...");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Switching to Analysis Mode...");
             PerformanceProfilingEnabled = true;
             SimulationProfilingEnabled = true;
-            UnityEngine.Debug.Log("[CS1Profiler] 📊 Analysis Mode enabled - full measurement active");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} 📊 Analysis Mode enabled - full measurement active");
         }
 
         /// <summary>
@@ -201,7 +202,7 @@ namespace CS1Profiler.Harmony
         {
             if (!_initialized) return;
             
-            UnityEngine.Debug.Log("[CS1Profiler] Shutting down patch management system...");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Shutting down patch management system...");
             
             try
             {
@@ -214,11 +215,11 @@ namespace CS1Profiler.Harmony
                 PloppableAsphaltFixOptimizationEnabled = false;
                 
                 _harmony?.UnpatchAll(HarmonyId);
-                UnityEngine.Debug.Log("[CS1Profiler] All patches removed successfully");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} All patches removed successfully");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Error during shutdown: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error during shutdown: {e.Message}");
             }
             
             _initialized = false;
@@ -232,7 +233,7 @@ namespace CS1Profiler.Harmony
             // 初期化中は EnsureInitialized を呼ばない（無限ループ防止）
             if (!_initialized)
             {
-                UnityEngine.Debug.LogWarning($"[CS1Profiler] Patch system not initialized, skipping {provider.Name} patch setting");
+                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Patch system not initialized, skipping {provider.Name} patch setting");
                 return;
             }
             
@@ -241,17 +242,17 @@ namespace CS1Profiler.Harmony
                 if (enabled && !provider.IsEnabled)
                 {
                     provider.Enable(_harmony);
-                    UnityEngine.Debug.Log($"[CS1Profiler] ✅ {provider.Name} patches enabled");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} ✅ {provider.Name} patches enabled");
                 }
                 else if (!enabled && provider.IsEnabled)
                 {
                     provider.Disable(_harmony);
-                    UnityEngine.Debug.Log($"[CS1Profiler] ❌ {provider.Name} patches disabled");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} ❌ {provider.Name} patches disabled");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to set {provider.Name} patches to {enabled}: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to set {provider.Name} patches to {enabled}: {e.Message}");
             }
         }
 
@@ -283,11 +284,11 @@ namespace CS1Profiler.Harmony
                     _ploppableAsphaltFixProvider.Enable(_harmony);
                 }
                 
-                UnityEngine.Debug.Log("[CS1Profiler] Default patches applied");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Default patches applied");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Error applying default patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error applying default patches: {e.Message}");
             }
         }
 
@@ -307,12 +308,12 @@ namespace CS1Profiler.Harmony
         /// </summary>
         private static void LogSystemStatus()
         {
-            UnityEngine.Debug.Log("[CS1Profiler] === Type-Safe Patch Management System Status ===");
-            UnityEngine.Debug.Log($"[CS1Profiler] Performance: {(_performanceProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_performanceProvider.DefaultEnabled ? "ON" : "OFF")})");
-            UnityEngine.Debug.Log($"[CS1Profiler] Simulation: {(_simulationProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_simulationProvider.DefaultEnabled ? "ON" : "OFF")})");
-            UnityEngine.Debug.Log($"[CS1Profiler] LogSuppression: {(_logSuppressionProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_logSuppressionProvider.DefaultEnabled ? "ON" : "OFF")})");
-            UnityEngine.Debug.Log($"[CS1Profiler] StartupAnalysis: {(_startupAnalysisProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_startupAnalysisProvider.DefaultEnabled ? "ON" : "OFF")})");
-            UnityEngine.Debug.Log($"[CS1Profiler] Current Mode: {(IsLightweightMode ? "Lightweight" : "Analysis")}");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === Type-Safe Patch Management System Status ===");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance: {(_performanceProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_performanceProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Simulation: {(_simulationProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_simulationProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} LogSuppression: {(_logSuppressionProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_logSuppressionProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} StartupAnalysis: {(_startupAnalysisProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_startupAnalysisProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Current Mode: {(IsLightweightMode ? "Lightweight" : "Analysis")}");
         }
     }
 }

@@ -1,8 +1,9 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -49,11 +50,11 @@ namespace CS1Profiler.Harmony
                 }
 
                 IsPatched = true;
-                UnityEngine.Debug.Log($"[CS1Profiler] Simulation patches applied: {patchedMethods.Count} methods");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Simulation patches applied: {patchedMethods.Count} methods");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to apply simulation patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply simulation patches: {e.Message}");
                 throw;
             }
         }
@@ -74,11 +75,11 @@ namespace CS1Profiler.Harmony
                 
                 patchedMethods.Clear();
                 IsPatched = false;
-                UnityEngine.Debug.Log("[CS1Profiler] Simulation patches removed");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Simulation patches removed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to remove simulation patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove simulation patches: {e.Message}");
                 throw;
             }
         }
@@ -104,7 +105,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to apply log suppression patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply log suppression patches: {e.Message}");
                 throw;
             }
         }
@@ -118,11 +119,11 @@ namespace CS1Profiler.Harmony
                 // LogSuppressionPatcherにRemovePatchesメソッドを追加する必要あり
                 // 今は簡単な実装
                 IsPatched = false;
-                UnityEngine.Debug.Log("[CS1Profiler] Log suppression patches removed");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Log suppression patches removed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to remove log suppression patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove log suppression patches: {e.Message}");
                 throw;
             }
         }
@@ -144,12 +145,12 @@ namespace CS1Profiler.Harmony
             try
             {
                 // StartupAnalysisPatcher削除：MPSCシステムに統合
-                UnityEngine.Debug.Log("[CS1Profiler] Startup analysis moved to MPSC manual profiling");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Startup analysis moved to MPSC manual profiling");
                 IsPatched = true;
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to apply startup analysis patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply startup analysis patches: {e.Message}");
                 throw;
             }
         }
@@ -162,11 +163,11 @@ namespace CS1Profiler.Harmony
             {
                 // 何もしない（MPSCシステムで管理）
                 IsPatched = false;
-                UnityEngine.Debug.Log("[CS1Profiler] Startup analysis patches removed");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Startup analysis patches removed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to remove startup analysis patches: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove startup analysis patches: {e.Message}");
                 throw;
             }
         }

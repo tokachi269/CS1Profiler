@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {
@@ -175,7 +176,7 @@ namespace CS1Profiler.Profiling
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] RecordMethodExecution error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} RecordMethodExecution error: " + e.Message);
             }
         }
 
@@ -198,7 +199,7 @@ namespace CS1Profiler.Profiling
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] GetRawDataCSV error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} GetRawDataCSV error: " + e.Message);
                 csv.AppendLine("ERROR," + e.Message + ",0,0");
             }
             
@@ -260,7 +261,7 @@ namespace CS1Profiler.Profiling
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] GetAllDataCSV error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} GetAllDataCSV error: " + e.Message);
                 csv.AppendLine("ERROR,ERROR,0,0,0,0");
             }
             

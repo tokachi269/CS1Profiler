@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 using ColossalFramework.UI;
 using ColossalFramework;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -53,11 +54,11 @@ namespace CS1Profiler.Harmony
                 ApplySpikeFix();
                 _isEnabled = true;
                 
-                UnityEngine.Debug.Log("[CS1Profiler] PloppableAsphaltFix SPIKE FIX enabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix SPIKE FIX enabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to enable PloppableAsphaltFix spike fix: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable PloppableAsphaltFix spike fix: {e.Message}");
                 throw;
             }
         }
@@ -85,11 +86,11 @@ namespace CS1Profiler.Harmony
                 ClearAllCaches();
                 
                 _isEnabled = false;
-                UnityEngine.Debug.Log("[CS1Profiler] PloppableAsphaltFix SPIKE FIX disabled");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix SPIKE FIX disabled");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to disable PloppableAsphaltFix spike fix: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable PloppableAsphaltFix spike fix: {e.Message}");
             }
         }
         
@@ -101,14 +102,14 @@ namespace CS1Profiler.Harmony
             var mainThreadType = GetPloppableAsphaltFixMainThreadType();
             if (mainThreadType == null)
             {
-                UnityEngine.Debug.LogWarning("[CS1Profiler] PloppableAsphaltFix.MainThread type not found - spike fix unavailable");
+                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} PloppableAsphaltFix.MainThread type not found - spike fix unavailable");
                 return;
             }
             
             var onUpdateMethod = mainThreadType.GetMethod("OnUpdate", BindingFlags.Instance | BindingFlags.Public);
             if (onUpdateMethod == null)
             {
-                UnityEngine.Debug.LogWarning("[CS1Profiler] PloppableAsphaltFix.MainThread.OnUpdate method not found");
+                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} PloppableAsphaltFix.MainThread.OnUpdate method not found");
                 return;
             }
             
@@ -118,11 +119,11 @@ namespace CS1Profiler.Harmony
                 var prefixMethod = new HarmonyMethod(typeof(PloppableAsphaltFixOptimization), nameof(SpikeFixOnUpdatePrefix));
                 _harmony.Patch(onUpdateMethod, prefixMethod);
                 
-                UnityEngine.Debug.Log("[CS1Profiler] PloppableAsphaltFix.MainThread.OnUpdate SPIKE FIX patch applied");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix.MainThread.OnUpdate SPIKE FIX patch applied");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to patch PloppableAsphaltFix.MainThread.OnUpdate: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to patch PloppableAsphaltFix.MainThread.OnUpdate: {e.Message}");
                 throw;
             }
         }
@@ -158,7 +159,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] SpikeFixOnUpdatePrefix error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} SpikeFixOnUpdatePrefix error: {e.Message}");
                 return true; // エラー時は元の処理を実行（安全性優先）
             }
         }
@@ -182,7 +183,7 @@ namespace CS1Profiler.Harmony
                         {
                             loadedField.SetValue(null, true);
                             _skippedHeavyInitCount++;
-                            UnityEngine.Debug.Log($"[CS1Profiler] PloppableAsphaltFix: Heavy initialization SKIPPED (838.78ms spike avoided) - Count: {_skippedHeavyInitCount}");
+                            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix: Heavy initialization SKIPPED (838.78ms spike avoided) - Count: {_skippedHeavyInitCount}");
                         }
                     }
                 }
@@ -191,7 +192,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] SkipHeavyInitialization error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} SkipHeavyInitialization error: {e.Message}");
             }
         }
         
@@ -219,7 +220,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] OptimizedUIProcessing error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} OptimizedUIProcessing error: {e.Message}");
                 // エラー時はキャッシュクリア（次回再取得）
                 ClearAllCaches();
             }
@@ -256,7 +257,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Error searching PloppableAsphaltFix types: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error searching PloppableAsphaltFix types: {e.Message}");
             }
             
             return null;
@@ -285,7 +286,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Error searching PloppableAsphalt type: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error searching PloppableAsphalt type: {e.Message}");
             }
             
             return null;

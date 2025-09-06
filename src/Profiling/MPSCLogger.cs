@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {
@@ -65,7 +66,7 @@ namespace CS1Profiler.Profiling
                 };
                 _writerThread.Start();
                 
-                Debug.Log(string.Format("[CS1Profiler] Writer thread started. Output: {0}", fileName));
+                Debug.Log(string.Format($"{Constants.LOG_PREFIX} Writer thread started. Output: {0}", fileName));
             }
         }
         
@@ -95,7 +96,7 @@ namespace CS1Profiler.Profiling
                 _forceStop = false;
                 _methodNameCache.Clear();
                 
-                Debug.Log("[CS1Profiler] MPSC Writer thread stopped immediately");
+                Debug.Log($"{Constants.LOG_PREFIX} MPSC Writer thread stopped immediately");
             }
         }
         
@@ -230,11 +231,11 @@ namespace CS1Profiler.Profiling
                     writer.Flush();
                 }
                 
-                Debug.Log(string.Format("[CS1Profiler] MPSC Writer completed. Output: {0}", _outputPath));
+                Debug.Log(string.Format($"{Constants.LOG_PREFIX} MPSC Writer completed. Output: {0}", _outputPath));
             }
             catch (Exception e)
             {
-                Debug.LogError(string.Format("[CS1Profiler] MPSC Writer error: {0}", e.Message));
+                Debug.LogError(string.Format($"{Constants.LOG_PREFIX} MPSC Writer error: {0}", e.Message));
             }
         }
     }

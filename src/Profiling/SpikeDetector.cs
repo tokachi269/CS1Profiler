@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {
@@ -87,7 +88,7 @@ namespace CS1Profiler.Profiling
             // 重要なスパイクのみログ出力（5倍以上）
             if (spike.SpikeRatio >= 5.0)
             {
-                UnityEngine.Debug.LogWarning($"[CS1Profiler] SPIKE DETECTED: {stats.MethodName} " +
+                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} SPIKE DETECTED: {stats.MethodName} " +
                     $"took {executionTimeMs:F2}ms ({spike.SpikeRatio:F1}x average)");
             }
         }

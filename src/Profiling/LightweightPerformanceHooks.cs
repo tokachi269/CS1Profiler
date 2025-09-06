@@ -1,6 +1,7 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reflection;
 using CS1Profiler.Harmony;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {

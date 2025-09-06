@@ -1,10 +1,11 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using ColossalFramework.Plugins;
+using CS1Profiler.Core;
 
 namespace CS1Profiler
 {
@@ -34,12 +35,12 @@ namespace CS1Profiler
                 }
                 else
                 {
-                    UnityEngine.Debug.Log("[CS1Profiler] RenderIt not detected, optimization patches skipped");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt not detected, optimization patches skipped");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] RenderIt optimization patches error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} RenderIt optimization patches error: " + e.Message);
             }
         }
 
@@ -75,13 +76,13 @@ namespace CS1Profiler
                             }
                         }
                         
-                        UnityEngine.Debug.Log("[CS1Profiler] RenderIt optimization patches applied successfully");
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt optimization patches applied successfully");
                     }
                 }
             }
             catch (Exception patchEx)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] RenderIt patch application error: " + patchEx.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} RenderIt patch application error: " + patchEx.Message);
             }
         }
     }
@@ -111,7 +112,7 @@ namespace CS1Profiler
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] OptimizedIsModEnabled error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} OptimizedIsModEnabled error: " + e.Message);
                 return true; // エラー時は元のメソッドを実行
             }
         }
@@ -141,7 +142,7 @@ namespace CS1Profiler
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] OptimizedIsAnyModsEnabled error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} OptimizedIsAnyModsEnabled error: " + e.Message);
                 return true; // エラー時は元のメソッドを実行
             }
         }
@@ -164,11 +165,11 @@ namespace CS1Profiler
                     }
                 }
                 
-                UnityEngine.Debug.Log($"[CS1Profiler] RenderIt ModUtils cache built: {_modCache.Count} entries");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt ModUtils cache built: {_modCache.Count} entries");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] BuildModCache error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} BuildModCache error: " + e.Message);
             }
         }
 
@@ -176,7 +177,7 @@ namespace CS1Profiler
         {
             _modCache.Clear();
             _cacheInitialized = false;
-            UnityEngine.Debug.Log("[CS1Profiler] RenderIt ModUtils cache cleared");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt ModUtils cache cleared");
         }
     }
 }

@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {
@@ -20,30 +21,30 @@ namespace CS1Profiler.Profiling
         {
             if (_isInitialized)
             {
-                UnityEngine.Debug.LogWarning("[CS1Profiler] MethodProfiler already initialized");
+                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} MethodProfiler already initialized");
                 return;
             }
             
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initializing...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MethodProfiler initializing...");
                 
                 // 初期化完了（MOD検出とパッチングはHarmonyPatches.csで実行済み）
                 // MethodPatcherは削除されHarmonyPatches.csに統合済み
                 
                 _isInitialized = true;
-                UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler initialization completed");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MethodProfiler initialization completed");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] MethodProfiler.Initialize error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} MethodProfiler.Initialize error: {e.Message}");
             }
         }
 
         public static void SetEnabled(bool enabled)
         {
             _isEnabled = enabled;
-            UnityEngine.Debug.Log($"[CS1Profiler] MethodProfiler enabled: {enabled}");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MethodProfiler enabled: {enabled}");
         }
 
         public static bool IsEnabled()
@@ -56,15 +57,15 @@ namespace CS1Profiler.Profiling
             try
             {
                 var stats = PerformanceProfiler.GetDetailedStats();
-                UnityEngine.Debug.Log("[CS1Profiler] === Detailed Performance Stats ===");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === Detailed Performance Stats ===");
                 foreach (var stat in stats.Take(20))
                 {
-                    UnityEngine.Debug.Log($"[CS1Profiler] {stat.Key}: {stat.Value}ms avg");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {stat.Key}: {stat.Value}ms avg");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] PrintDetailedStats error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} PrintDetailedStats error: {e.Message}");
             }
         }
         
@@ -200,7 +201,7 @@ namespace CS1Profiler.Profiling
         public static void Clear()
         {
             Reset();
-            UnityEngine.Debug.Log("[CS1Profiler] MethodProfiler statistics cleared");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} MethodProfiler statistics cleared");
         }
         
         // パッチ情報取得（ダミー実装）

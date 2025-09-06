@@ -28,6 +28,7 @@
     <!-- 軽量プロファイリングシステム -->
     <!-- Core: 共通定義 -->
     <Compile Include="src\Core\Common.cs" />
+    <Compile Include="src\Core\Constants.cs" />
     <Compile Include="src\UserMod.cs" />
     <!-- Managers: 管理クラス -->
     <Compile Include="src\Managers\ProfilerManager.cs" />
@@ -50,9 +51,6 @@
     <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
     <Compile Include="src\Harmony\SimulationPatcher.cs" />
     <Compile Include="src\Harmony\RenderItOptimization.cs" />
-    <!-- UI: ユーザーインターフェイス -->
-    <Compile Include="src\UI\PerformancePanel.cs" />
-    <Compile Include="src\UI\UIManager.cs" />
   </ItemGroup>
 
   <ItemGroup>

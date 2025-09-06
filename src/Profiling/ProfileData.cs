@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Profiling
 {

@@ -1,9 +1,10 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using UnityEngine;
+using CS1Profiler.Core;
 
 namespace CS1Profiler.Harmony
 {
@@ -22,7 +23,7 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                UnityEngine.Debug.Log("[CS1Profiler] Removing simulation measurement patches...");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removing simulation measurement patches...");
                 
                 int removedCount = 0;
                 foreach (var method in patchedMethods)
@@ -41,16 +42,16 @@ namespace CS1Profiler.Harmony
                     }
                     catch (Exception e)
                     {
-                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to remove simulation patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to remove simulation patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
                     }
                 }
                 
                 patchedMethods.Clear();
-                UnityEngine.Debug.Log($"[CS1Profiler] Removed {removedCount} simulation patches");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removed {removedCount} simulation patches");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] RemoveSimulationPatches error: {e.Message}");
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} RemoveSimulationPatches error: {e.Message}");
             }
         }
         public static void ApplyPatches(HarmonyLib.Harmony harmony)
@@ -70,7 +71,7 @@ namespace CS1Profiler.Harmony
                         postfix: new HarmonyLib.HarmonyMethod(typeof(LegacySimulationHooks).GetMethod("Post"))
                     );
                     patchedMethods.Add(simMethod); // パッチしたメソッドを記録
-                    UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStepImpl patched successfully (legacy system)");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} SimulationManager.SimulationStepImpl patched successfully (legacy system)");
                 }
 
                 // さらにSimulationManager.SimulationStepもパフォーマンス測定対象に
@@ -83,12 +84,12 @@ namespace CS1Profiler.Harmony
                     var postfix = new HarmonyLib.HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPostfix");
                     harmony.Patch(simStepMethod, prefix, postfix);
                     patchedMethods.Add(simStepMethod); // パッチしたメソッドを記録
-                    UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStep patched (new system)");
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} SimulationManager.SimulationStep patched (new system)");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] SimulationPatcher failed: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} SimulationPatcher failed: " + e.Message);
             }
         }
     }
@@ -123,23 +124,23 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] EnsureInitialized failed: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} EnsureInitialized failed: " + e.Message);
             }
         }
 
         public static void ToggleProfiling()
         {
-            UnityEngine.Debug.Log("[CS1Profiler] === SimulationProfiling ToggleProfiling() CALLED ===");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === SimulationProfiling ToggleProfiling() CALLED ===");
             
             bool currentState = PatchController.SimulationProfilingEnabled;
-            UnityEngine.Debug.Log("[CS1Profiler] Current SimulationProfiling state: " + currentState);
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Current SimulationProfiling state: " + currentState);
             
             PatchController.SimulationProfilingEnabled = !currentState;
             
-            UnityEngine.Debug.Log("[CS1Profiler] New SimulationProfiling state: " + PatchController.SimulationProfilingEnabled);
-            UnityEngine.Debug.Log("[CS1Profiler] SimulationProfiling: " + (PatchController.SimulationProfilingEnabled ? "ON" : "OFF"));
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} New SimulationProfiling state: " + PatchController.SimulationProfilingEnabled);
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} SimulationProfiling: " + (PatchController.SimulationProfilingEnabled ? "ON" : "OFF"));
             
-            UnityEngine.Debug.Log("[CS1Profiler] === SimulationProfiling ToggleProfiling() COMPLETED ===");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === SimulationProfiling ToggleProfiling() COMPLETED ===");
         }
         
         public static bool IsEnabled()
@@ -164,7 +165,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] GetId error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} GetId error: " + e.Message);
                 return 0;
             }
         }
@@ -204,7 +205,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] Post method error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Post method error: " + e.Message);
             }
         }
 
@@ -235,7 +236,7 @@ namespace CS1Profiler.Harmony
                 }
 
                 var sb = new System.Text.StringBuilder();
-                sb.AppendLine("[CS1Profiler] Top" + n + " (frame " + UnityEngine.Time.frameCount + ") WITH CSV");
+                sb.AppendLine($"{Constants.LOG_PREFIX} Top" + n + " (frame " + UnityEngine.Time.frameCount + ") WITH CSV");
                 
                 for (int i = 0; i < Math.Min(n, list.Count); i++)
                 {
@@ -274,7 +275,7 @@ namespace CS1Profiler.Harmony
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError("[CS1Profiler] DumpTop error: " + e.Message);
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} DumpTop error: " + e.Message);
             }
         }
 
