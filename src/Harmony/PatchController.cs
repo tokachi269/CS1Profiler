@@ -1,174 +1,318 @@
+using HarmonyLib;
 using System;
 using UnityEngine;
+using CS1Profiler.Managers;
+using CS1Profiler.Profiling;
 
 namespace CS1Profiler.Harmony
 {
     /// <summary>
-    /// 全Harmonyパッチの有効/無効を統一管理するクラス
-    /// パフォーマンス重視のため、通常時はOFF、必要時のみONにする
+    /// 型安全なパッチ管理システム
+    /// interface基盤でコンパイル時安全性を確保
     /// </summary>
     public static class PatchController
     {
-        // 各パッチカテゴリのON/OFF状態
-        private static bool _performanceProfilingEnabled = false; // デフォルトOFF（パフォーマンス重視）
-        private static bool _startupAnalysisEnabled = true;       // 起動解析はON
-        private static bool _logSuppressionEnabled = true;        // ログ抑制はON
-        private static bool _simulationProfilingEnabled = false;  // SimulationステップもOFF
+        private const string HarmonyId = "me.cs1profiler.startup";
+        private static bool _initialized = false;
+        private static HarmonyLib.Harmony _harmony = null;
+
+        // 各パッチプロバイダーのインスタンス（型安全）
+        private static readonly PerformancePatchProvider _performanceProvider = new PerformancePatchProvider();
+        private static readonly SimulationPatchProvider _simulationProvider = new SimulationPatchProvider();
+        private static readonly LogSuppressionPatchProvider _logSuppressionProvider = new LogSuppressionPatchProvider();
+        private static readonly StartupAnalysisPatchProvider _startupAnalysisProvider = new StartupAnalysisPatchProvider();
+        private static readonly RenderItOptimizationPatchProvider _renderItOptimizationProvider = new RenderItOptimizationPatchProvider();
+        private static readonly PloppableAsphaltFixOptimizationPatchProvider _ploppableAsphaltFixProvider = new PloppableAsphaltFixOptimizationPatchProvider();
 
         /// <summary>
-        /// パフォーマンス測定パッチの有効/無効（デフォルト：無効）
+        /// システム初期化
+        /// </summary>
+        public static void Initialize()
+        {
+            if (_initialized) 
+            {
+                return;
+            }
+
+            UnityEngine.Debug.Log("[CS1Profiler] Initializing patch management system...");
+            
+            try
+            {
+                _harmony = new HarmonyLib.Harmony(HarmonyId);
+                
+                // デフォルト有効なパッチを適用
+                ApplyDefaultPatches();
+                
+                _initialized = true;
+                UnityEngine.Debug.Log("[CS1Profiler] Patch system initialized - Mode: Lightweight");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to initialize patch system: {e.Message}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// パフォーマンス測定パッチの有効/無効（型安全）
+        /// MPSC Logger連携
         /// </summary>
         public static bool PerformanceProfilingEnabled
         {
-            get => _performanceProfilingEnabled;
-            set
+            get => _performanceProvider.IsEnabled;
+            set 
             {
-                if (_performanceProfilingEnabled != value)
+                if (_initialized)
                 {
-                    _performanceProfilingEnabled = value;
-                    LogStateChange("PerformanceProfiling", value);
+                    SetPatchEnabled(_performanceProvider, value);
                     
-                    // CSVに状態変更を記録
-                    RecordStateChange("PerformanceProfiling", value);
+                    // MPSC Logger連携
+                    if (value)
+                    {
+                        CS1Profiler.Profiling.MPSCLogger.StartWriter();
+                        UnityEngine.Debug.Log("[CS1Profiler] MPSC Performance profiling enabled");
+                    }
+                    else
+                    {
+                        CS1Profiler.Profiling.MPSCLogger.StopWriter();
+                        UnityEngine.Debug.Log("[CS1Profiler] MPSC Performance profiling disabled");
+                    }
                 }
             }
         }
 
         /// <summary>
-        /// 起動時解析パッチの有効/無効（デフォルト：有効）
-        /// </summary>
-        public static bool StartupAnalysisEnabled
-        {
-            get => _startupAnalysisEnabled;
-            set
-            {
-                if (_startupAnalysisEnabled != value)
-                {
-                    _startupAnalysisEnabled = value;
-                    LogStateChange("StartupAnalysis", value);
-                    RecordStateChange("StartupAnalysis", value);
-                }
-            }
-        }
-
-        /// <summary>
-        /// ログ抑制パッチの有効/無効（デフォルト：有効）
-        /// </summary>
-        public static bool LogSuppressionEnabled
-        {
-            get => _logSuppressionEnabled;
-            set
-            {
-                if (_logSuppressionEnabled != value)
-                {
-                    _logSuppressionEnabled = value;
-                    LogStateChange("LogSuppression", value);
-                    RecordStateChange("LogSuppression", value);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Simulationステップ測定の有効/無効（デフォルト：無効）
+        /// シミュレーション測定パッチの有効/無効（型安全）
         /// </summary>
         public static bool SimulationProfilingEnabled
         {
-            get => _simulationProfilingEnabled;
-            set
+            get => _simulationProvider.IsEnabled;
+            set 
             {
-                if (_simulationProfilingEnabled != value)
-                {
-                    _simulationProfilingEnabled = value;
-                    LogStateChange("SimulationProfiling", value);
-                    RecordStateChange("SimulationProfiling", value);
-                }
+                if (_initialized)
+                    SetPatchEnabled(_simulationProvider, value);
             }
         }
 
         /// <summary>
-        /// 全てのプロファイリングを一括でON/OFF
+        /// ログ抑制パッチの有効/無効（型安全）
         /// </summary>
-        public static void SetAllProfilingEnabled(bool enabled)
+        public static bool LogSuppressionEnabled
         {
-            UnityEngine.Debug.Log($"[CS1Profiler] Setting ALL profiling to: {(enabled ? "ENABLED" : "DISABLED")}");
-            
-            PerformanceProfilingEnabled = enabled;
-            SimulationProfilingEnabled = enabled;
-            
-            // 起動解析とログ抑制は別管理（常にONが推奨）
+            get => _logSuppressionProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_logSuppressionProvider, value);
+            }
         }
 
         /// <summary>
-        /// 測定系のみを一括でON/OFF（起動解析・ログ抑制は除く）
+        /// 起動解析パッチの有効/無効（型安全）
         /// </summary>
-        public static void SetMeasurementEnabled(bool enabled)
+        public static bool StartupAnalysisEnabled
         {
-            UnityEngine.Debug.Log($"[CS1Profiler] Setting measurement profiling to: {(enabled ? "ENABLED" : "DISABLED")}");
-            
-            PerformanceProfilingEnabled = enabled;
-            SimulationProfilingEnabled = enabled;
+            get => _startupAnalysisProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_startupAnalysisProvider, value);
+            }
         }
 
         /// <summary>
-        /// 現在の状態をすべて取得
+        /// RenderIt最適化パッチの有効/無効（型安全）
         /// </summary>
-        public static string GetCurrentStatus()
+        public static bool RenderItOptimizationEnabled
         {
-            return $"Performance: {(_performanceProfilingEnabled ? "ON" : "OFF")}, " +
-                   $"Startup: {(_startupAnalysisEnabled ? "ON" : "OFF")}, " +
-                   $"LogSuppression: {(_logSuppressionEnabled ? "ON" : "OFF")}, " +
-                   $"Simulation: {(_simulationProfilingEnabled ? "ON" : "OFF")}";
+            get => _renderItOptimizationProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_renderItOptimizationProvider, value);
+            }
         }
 
         /// <summary>
-        /// 軽量モード：測定系を全てOFFにしてパフォーマンス重視
+        /// PloppableAsphaltFix最適化パッチの有効/無効（型安全）
+        /// </summary>
+        public static bool PloppableAsphaltFixOptimizationEnabled
+        {
+            get => _ploppableAsphaltFixProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_ploppableAsphaltFixProvider, value);
+            }
+        }
+
+        /// <summary>
+        /// 軽量モード判定（すべての測定系パッチがOFF）
+        /// </summary>
+        public static bool IsLightweightMode =>
+            !_performanceProvider.IsEnabled && !_simulationProvider.IsEnabled;
+
+        /// <summary>
+        /// 軽量モードに設定（すべての測定系パッチをOFF）
         /// </summary>
         public static void EnableLightweightMode()
         {
-            UnityEngine.Debug.Log("[CS1Profiler] Enabling lightweight mode (all measurements OFF)");
-            SetMeasurementEnabled(false);
+            EnsureInitialized();
+            
+            UnityEngine.Debug.Log("[CS1Profiler] Switching to Lightweight Mode...");
+            PerformanceProfilingEnabled = false;
+            SimulationProfilingEnabled = false;
+            UnityEngine.Debug.Log("[CS1Profiler] 🏃‍♂️ Lightweight Mode enabled - zero measurement overhead");
         }
 
         /// <summary>
-        /// 解析モード：測定系を全てONにして詳細分析
+        /// 解析モードに設定（すべての測定系パッチをON）
         /// </summary>
         public static void EnableAnalysisMode()
         {
-            UnityEngine.Debug.Log("[CS1Profiler] Enabling analysis mode (all measurements ON)");
-            SetMeasurementEnabled(true);
+            EnsureInitialized();
+            
+            UnityEngine.Debug.Log("[CS1Profiler] Switching to Analysis Mode...");
+            PerformanceProfilingEnabled = true;
+            SimulationProfilingEnabled = true;
+            UnityEngine.Debug.Log("[CS1Profiler] 📊 Analysis Mode enabled - full measurement active");
         }
 
-        private static void LogStateChange(string category, bool enabled)
+        /// <summary>
+        /// システム状態を文字列で取得
+        /// </summary>
+        public static string GetStatusString()
         {
-            UnityEngine.Debug.Log($"[CS1Profiler] {category} profiling: {(enabled ? "ENABLED" : "DISABLED")}");
+            EnsureInitialized();
+            
+            var performance = _performanceProvider.IsEnabled ? "ON" : "OFF";
+            var simulation = _simulationProvider.IsEnabled ? "ON" : "OFF";
+            var logSuppression = _logSuppressionProvider.IsEnabled ? "ON" : "OFF";
+            var startupAnalysis = _startupAnalysisProvider.IsEnabled ? "ON" : "OFF";
+            var mode = IsLightweightMode ? "Lightweight" : "Analysis";
+            
+            return $"Performance:{performance}, Simulation:{simulation}, LogSuppression:{logSuppression}, Startup:{startupAnalysis}, Mode:{mode}";
         }
 
-        private static void RecordStateChange(string category, bool enabled)
+        /// <summary>
+        /// 全パッチを削除してシステム終了
+        /// </summary>
+        public static void Shutdown()
         {
+            if (!_initialized) return;
+            
+            UnityEngine.Debug.Log("[CS1Profiler] Shutting down patch management system...");
+            
             try
             {
-                if (CS1Profiler.Managers.ProfilerManager.Instance?.CsvManager != null)
+                // 個別に無効化
+                PerformanceProfilingEnabled = false;
+                SimulationProfilingEnabled = false;
+                LogSuppressionEnabled = false;
+                StartupAnalysisEnabled = false;
+                RenderItOptimizationEnabled = false;
+                PloppableAsphaltFixOptimizationEnabled = false;
+                
+                _harmony?.UnpatchAll(HarmonyId);
+                UnityEngine.Debug.Log("[CS1Profiler] All patches removed successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] Error during shutdown: {e.Message}");
+            }
+            
+            _initialized = false;
+        }
+
+        /// <summary>
+        /// パッチプロバイダーの有効/無効を設定（内部メソッド）
+        /// </summary>
+        private static void SetPatchEnabled(IPatchProvider provider, bool enabled)
+        {
+            // 初期化中は EnsureInitialized を呼ばない（無限ループ防止）
+            if (!_initialized)
+            {
+                UnityEngine.Debug.LogWarning($"[CS1Profiler] Patch system not initialized, skipping {provider.Name} patch setting");
+                return;
+            }
+            
+            try
+            {
+                if (enabled && !provider.IsEnabled)
                 {
-                    CS1Profiler.Managers.ProfilerManager.Instance.CsvManager.QueueCsvWrite(
-                        "System", 
-                        $"{category}Toggle", 
-                        0, 0, 0, 0, 
-                        enabled ? "ENABLED" : "DISABLED"
-                    );
+                    provider.Enable(_harmony);
+                    UnityEngine.Debug.Log($"[CS1Profiler] ✅ {provider.Name} patches enabled");
+                }
+                else if (!enabled && provider.IsEnabled)
+                {
+                    provider.Disable(_harmony);
+                    UnityEngine.Debug.Log($"[CS1Profiler] ❌ {provider.Name} patches disabled");
                 }
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to record state change: {e.Message}");
+                UnityEngine.Debug.LogError($"[CS1Profiler] Failed to set {provider.Name} patches to {enabled}: {e.Message}");
             }
         }
 
         /// <summary>
-        /// 初期化時の状態ログ
+        /// デフォルト有効なパッチを適用
         /// </summary>
-        public static void LogInitialState()
+        private static void ApplyDefaultPatches()
         {
-            UnityEngine.Debug.Log($"[CS1Profiler] PatchController initialized - {GetCurrentStatus()}");
+            try
+            {
+                // デフォルト有効なパッチを直接有効化（setter経由を避ける）
+                if (_logSuppressionProvider.DefaultEnabled)
+                {
+                    _logSuppressionProvider.Enable(_harmony);
+                }
+                    
+                if (_startupAnalysisProvider.DefaultEnabled)
+                {
+                    _startupAnalysisProvider.Enable(_harmony);
+                }
+                
+                if (_renderItOptimizationProvider.DefaultEnabled)
+                {
+                    _renderItOptimizationProvider.Enable(_harmony);
+                }
+                
+                if (_ploppableAsphaltFixProvider.DefaultEnabled)
+                {
+                    _ploppableAsphaltFixProvider.Enable(_harmony);
+                }
+                
+                UnityEngine.Debug.Log("[CS1Profiler] Default patches applied");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] Error applying default patches: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// システムが初期化されていることを確認
+        /// </summary>
+        private static void EnsureInitialized()
+        {
+            if (!_initialized)
+            {
+                Initialize();
+            }
+        }
+
+        /// <summary>
+        /// システム状態をログ出力
+        /// </summary>
+        private static void LogSystemStatus()
+        {
+            UnityEngine.Debug.Log("[CS1Profiler] === Type-Safe Patch Management System Status ===");
+            UnityEngine.Debug.Log($"[CS1Profiler] Performance: {(_performanceProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_performanceProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"[CS1Profiler] Simulation: {(_simulationProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_simulationProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"[CS1Profiler] LogSuppression: {(_logSuppressionProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_logSuppressionProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"[CS1Profiler] StartupAnalysis: {(_startupAnalysisProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_startupAnalysisProvider.DefaultEnabled ? "ON" : "OFF")})");
+            UnityEngine.Debug.Log($"[CS1Profiler] Current Mode: {(IsLightweightMode ? "Lightweight" : "Analysis")}");
         }
     }
 }

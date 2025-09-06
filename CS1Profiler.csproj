@@ -38,14 +38,18 @@
     <Compile Include="src\Profiling\PerformanceProfiler.cs" />
     <Compile Include="src\Profiling\SpikeDetector.cs" />
     <Compile Include="src\Profiling\ProfileData.cs" />
+    <Compile Include="src\Profiling\MPSCLogger.cs" />
+    <Compile Include="src\Profiling\LightweightPerformanceHooks.cs" />
     <!-- Harmony: パッチとフック処理 -->
+    <Compile Include="src\Harmony\IPatchProvider.cs" />
+    <Compile Include="src\Harmony\PatchProviders.cs" />
     <Compile Include="src\Harmony\PatchController.cs" />
     <Compile Include="src\Harmony\MainPatcher.cs" />
     <Compile Include="src\Harmony\PerformancePatcher.cs" />
-    <Compile Include="src\Harmony\StartupAnalysisPatcher.cs" />
+    <Compile Include="src\Harmony\PloppableAsphaltFixOptimization.cs" />
     <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
     <Compile Include="src\Harmony\SimulationPatcher.cs" />
-    <Compile Include="src\Harmony\SimulationStepPatch.cs" />
+    <Compile Include="src\Harmony\RenderItOptimization.cs" />
     <!-- UI: ユーザーインターフェイス -->
     <Compile Include="src\UI\PerformancePanel.cs" />
     <Compile Include="src\UI\UIManager.cs" />

@@ -13,6 +13,41 @@ namespace CS1Profiler.Harmony
     /// </summary>
     public static class PerformancePatcher
     {
+        private static List<MethodInfo> patchedMethods = new List<MethodInfo>();
+
+        /// <summary>
+        /// パフォーマンス測定パッチを完全に削除
+        /// </summary>
+        public static void RemovePatches(HarmonyLib.Harmony harmony)
+        {
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Removing performance measurement patches...");
+                
+                int removedCount = 0;
+                foreach (var method in patchedMethods)
+                {
+                    try
+                    {
+                        // 超軽量フック用の削除
+                        harmony.Unpatch(method, typeof(CS1Profiler.Profiling.LightweightPerformanceHooks).GetMethod("ProfilerPrefix"));
+                        harmony.Unpatch(method, typeof(CS1Profiler.Profiling.LightweightPerformanceHooks).GetMethod("ProfilerPostfix"));
+                        removedCount++;
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to remove patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                    }
+                }
+                
+                patchedMethods.Clear();
+                UnityEngine.Debug.Log($"[CS1Profiler] Removed {removedCount} performance patches");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] RemovePatches error: {e.Message}");
+            }
+        }
         public static void ApplyBlacklistPatches(HarmonyLib.Harmony harmony, HashSet<string> modAssemblyNames, HashSet<string> modTypeNames)
         {
             try
@@ -42,10 +77,12 @@ namespace CS1Profiler.Harmony
                             {
                                 try
                                 {
-                                    var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
-                                    var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
+                                    // 超軽量フック（LightweightPerformanceHooks使用）
+                                    var prefix = new HarmonyLib.HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPrefix");
+                                    var postfix = new HarmonyLib.HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPostfix");
                                     
                                     harmony.Patch(method, prefix, postfix);
+                                    patchedMethods.Add(method); // パッチしたメソッドを記録
                                     patchCount++;
                                     
                                 }
@@ -180,53 +217,6 @@ namespace CS1Profiler.Harmony
                    method.GetParameters().Length > 10; // パラメータが多すぎるメソッドは除外
         }
     }
-
-    /// <summary>
-    /// パフォーマンス測定用のHookクラス
-    /// PatchControllerによる統一された有効/無効制御を使用
-    /// </summary>
-    public static class PerformanceHooks
-    {
-        // Prefix: メソッド開始時にタイムスタンプを記録
-        public static void ProfilerPrefix(MethodBase __originalMethod, out long __state)
-        {
-            try
-            {
-                // 統一制御による有効/無効チェック
-                if (!PatchController.PerformanceProfilingEnabled)
-                {
-                    __state = 0;
-                    return;
-                }
-
-                string methodKey = __originalMethod.DeclaringType.Name + "." + __originalMethod.Name;
-                __state = System.Diagnostics.Stopwatch.GetTimestamp();
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] ProfilerPrefix error: " + e.Message);
-                __state = 0;
-            }
-        }
-
-        // Postfix: メソッド終了時に実行時間を計算してMethodProfilerに送信
-        public static void ProfilerPostfix(MethodBase __originalMethod, long __state)
-        {
-            try
-            {
-                // 統一制御による有効/無効チェック
-                if (!PatchController.PerformanceProfilingEnabled || __state == 0) return;
-                
-                long elapsed = System.Diagnostics.Stopwatch.GetTimestamp() - __state;
-                string methodKey = __originalMethod.DeclaringType.Name + "." + __originalMethod.Name;
-                
-                // 既存のPerformanceProfilerシステムを活用
-                CS1Profiler.Profiling.PerformanceProfiler.RecordMethodExecution(methodKey, elapsed);
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] ProfilerPostfix error: " + e.Message);
-            }
-        }
-    }
+    
+    // 旧PerformanceHooksは削除（LightweightPerformanceHooksに統合）
 }

@@ -13,6 +13,46 @@ namespace CS1Profiler.Harmony
     /// </summary>
     public static class SimulationPatcher
     {
+        private static List<MethodInfo> patchedMethods = new List<MethodInfo>();
+
+        /// <summary>
+        /// シミュレーション測定パッチを完全に削除
+        /// </summary>
+        public static void RemovePatches(HarmonyLib.Harmony harmony)
+        {
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Removing simulation measurement patches...");
+                
+                int removedCount = 0;
+                foreach (var method in patchedMethods)
+                {
+                    try
+                    {
+                        // LegacySimulationHooksのパッチを削除
+                        harmony.Unpatch(method, typeof(LegacySimulationHooks).GetMethod("Pre"));
+                        harmony.Unpatch(method, typeof(LegacySimulationHooks).GetMethod("Post"));
+                        
+                        // LightweightPerformanceHooksのパッチも削除
+                        harmony.Unpatch(method, typeof(CS1Profiler.Profiling.LightweightPerformanceHooks).GetMethod("ProfilerPrefix"));
+                        harmony.Unpatch(method, typeof(CS1Profiler.Profiling.LightweightPerformanceHooks).GetMethod("ProfilerPostfix"));
+                        
+                        removedCount++;
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"[CS1Profiler] Failed to remove simulation patch from {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                    }
+                }
+                
+                patchedMethods.Clear();
+                UnityEngine.Debug.Log($"[CS1Profiler] Removed {removedCount} simulation patches");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"[CS1Profiler] RemoveSimulationPatches error: {e.Message}");
+            }
+        }
         public static void ApplyPatches(HarmonyLib.Harmony harmony)
         {
             try
@@ -29,6 +69,7 @@ namespace CS1Profiler.Harmony
                         prefix: new HarmonyLib.HarmonyMethod(typeof(LegacySimulationHooks).GetMethod("Pre")),
                         postfix: new HarmonyLib.HarmonyMethod(typeof(LegacySimulationHooks).GetMethod("Post"))
                     );
+                    patchedMethods.Add(simMethod); // パッチしたメソッドを記録
                     UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStepImpl patched successfully (legacy system)");
                 }
 
@@ -38,9 +79,10 @@ namespace CS1Profiler.Harmony
                 
                 if (simStepMethod != null)
                 {
-                    var prefix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPrefix");
-                    var postfix = new HarmonyLib.HarmonyMethod(typeof(PerformanceHooks), "ProfilerPostfix");
+                    var prefix = new HarmonyLib.HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPrefix");
+                    var postfix = new HarmonyLib.HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPostfix");
                     harmony.Patch(simStepMethod, prefix, postfix);
+                    patchedMethods.Add(simStepMethod); // パッチしたメソッドを記録
                     UnityEngine.Debug.Log("[CS1Profiler] SimulationManager.SimulationStep patched (new system)");
                 }
             }

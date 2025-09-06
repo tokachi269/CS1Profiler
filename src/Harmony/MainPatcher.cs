@@ -21,53 +21,109 @@ namespace CS1Profiler.Harmony
     {
         private const string HarmonyId = "me.cs1profiler.startup";
         private static bool patched = false;
+        private static HarmonyLib.Harmony harmonyInstance = null;
+
+        /// <summary>
+        /// パフォーマンス測定パッチの動的適用
+        /// </summary>
+        public static void EnablePerformancePatches()
+        {
+            if (harmonyInstance == null || !patched) return;
+
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Enabling performance patches...");
+                ApplyPerformancePatches(harmonyInstance);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Failed to enable performance patches: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// パフォーマンス測定パッチの動的削除
+        /// </summary>
+        public static void DisablePerformancePatches()
+        {
+            if (harmonyInstance == null) return;
+
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Disabling performance patches...");
+                PerformancePatcher.RemovePatches(harmonyInstance);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Failed to disable performance patches: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// シミュレーション測定パッチの動的適用
+        /// </summary>
+        public static void EnableSimulationPatches()
+        {
+            if (harmonyInstance == null || !patched) return;
+
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Enabling simulation patches...");
+                SimulationPatcher.ApplyPatches(harmonyInstance);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Failed to enable simulation patches: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// シミュレーション測定パッチの動的削除
+        /// </summary>
+        public static void DisableSimulationPatches()
+        {
+            if (harmonyInstance == null) return;
+
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Disabling simulation patches...");
+                SimulationPatcher.RemovePatches(harmonyInstance);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Failed to disable simulation patches: " + e.Message);
+            }
+        }
 
         public static void PatchAll()
         {
             if (patched) return;
 
             patched = true;
-            var harmony = new HarmonyLib.Harmony(HarmonyId);
+            harmonyInstance = new HarmonyLib.Harmony(HarmonyId);
 
-            // 要件対応: Manager/AI/Controller系クラスをターゲットにパッチング
-            ApplyPerformancePatches(harmony);
+            // デフォルトではパフォーマンス測定系パッチは適用しない（性能重視）
+            // PatchController.PerformanceProfilingEnabledがtrueの場合のみ適用
 
             // --- PackageDeserializerログ抑制パッチ ---
             try
             {
                 UnityEngine.Debug.Log("[CS1Profiler] Applying log suppression patches...");
-                LogSuppressionPatcher.ApplyPatches(harmony);
+                LogSuppressionPatcher.ApplyPatches(harmonyInstance);
             }
             catch (Exception e)
             {
                 UnityEngine.Debug.LogError("[CS1Profiler] Log suppression patches failed: " + e.Message);
             }
 
-            // --- 起動時解析用のパッチを追加 ---
-            try
-            {
-                UnityEngine.Debug.Log("[CS1Profiler] Applying startup analysis patches...");
-                StartupAnalysisPatcher.ApplyPatches(harmony);
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] Startup patches failed: " + e.Message);
-            }
+            // --- 起動時解析は手動開始に変更（StartupAnalysisPatcher削除） ---
+            UnityEngine.Debug.Log("[CS1Profiler] Startup analysis moved to manual activation via UI button.");
 
-            // --- 既存のSimulationStepImplパッチ ---
-            try
-            {
-                SimulationPatcher.ApplyPatches(harmony);
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError("[CS1Profiler] SimulationManager patch failed: " + e.Message);
-            }
-
-            UnityEngine.Debug.Log("[CS1Profiler] All Harmony patches applied successfully.");
+            UnityEngine.Debug.Log("[CS1Profiler] Essential patches applied. Performance measurement patches disabled by default.");
             
             // PatchControllerの初期状態をログ出力
-            PatchController.LogInitialState();
+            var status = PatchController.GetStatusString();
+            UnityEngine.Debug.Log($"[CS1Profiler] Initial Patch Status: {status}");
         }
 
         // パフォーマンス測定用のブラックリストシステム
@@ -174,9 +230,21 @@ namespace CS1Profiler.Harmony
         {
             if (!patched) return;
 
-            var harmony = new HarmonyLib.Harmony(HarmonyId);
-            harmony.UnpatchAll(HarmonyId);
-            patched = false;
+            try
+            {
+                UnityEngine.Debug.Log("[CS1Profiler] Removing all Harmony patches...");
+                if (harmonyInstance != null)
+                {
+                    harmonyInstance.UnpatchAll(HarmonyId);
+                }
+                patched = false;
+                harmonyInstance = null;
+                UnityEngine.Debug.Log("[CS1Profiler] All patches removed successfully.");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError("[CS1Profiler] Failed to remove patches: " + e.Message);
+            }
         }
     }
 }

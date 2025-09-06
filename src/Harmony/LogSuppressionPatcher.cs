@@ -26,7 +26,6 @@ namespace CS1Profiler.Harmony
                     {
                         harmony.Patch(resolveLegacyMemberMethod,
                             prefix: new HarmonyLib.HarmonyMethod(typeof(LogSuppressionHooks), "ResolveLegacyMember_Prefix"));
-                        UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer.ResolveLegacyMember replaced for log suppression");
                     }
                     
                     // ResolveLegacyTypeメソッドも置き換え
@@ -37,7 +36,6 @@ namespace CS1Profiler.Harmony
                     {
                         harmony.Patch(resolveLegacyTypeMethod,
                             prefix: new HarmonyLib.HarmonyMethod(typeof(LogSuppressionHooks), "ResolveLegacyType_Replacement"));
-                        UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer.ResolveLegacyType replaced for log suppression");
                     }
                     
                     // HandleUnknownTypeメソッドも置き換え
@@ -48,11 +46,10 @@ namespace CS1Profiler.Harmony
                     {
                         harmony.Patch(handleUnknownTypeMethod,
                             prefix: new HarmonyLib.HarmonyMethod(typeof(LogSuppressionHooks), "HandleUnknownType_Replacement"));
-                        UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer.HandleUnknownType replaced for log suppression");
                     }
                 }
                 
-                UnityEngine.Debug.Log("[CS1Profiler] PackageDeserializer log suppression replacement patches completed");
+                UnityEngine.Debug.Log("[CS1Profiler] Log suppression patches applied");
             }
             catch (Exception e)
             {
