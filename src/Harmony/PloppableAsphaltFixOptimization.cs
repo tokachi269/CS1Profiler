@@ -34,10 +34,14 @@ namespace CS1Profiler.Harmony
         // フレーム制御
         private static int _lastProcessedFrame = -1;
         private static int _uiCheckInterval = 10; // 10フレームに1回UIチェック
+        private static int _lastApplyPropertiesFrame = -1;
         
         // 統計
         private static int _skippedHeavyInitCount = 0;
         private static int _optimizedUICallCount = 0;
+        
+        // 設定オプション
+        public static int ApplyPropertiesInterval = 300; // 300フレーム間隔（約5秒）
         
         public static bool IsEnabled => _isEnabled;
         
@@ -165,13 +169,13 @@ namespace CS1Profiler.Harmony
         }
         
         /// <summary>
-        /// 重い初期化処理をスキップ（838.78msスパイク回避）
+        /// 重い初期化処理を頻度制限で最適化
+        /// プロップ透明化を防ぐため、常に定期実行を行う
         /// </summary>
         private static void SkipHeavyInitialization()
         {
             try
             {
-                // PloppableAsphalt.ApplyProperties() を実行せず、Loadedフラグのみ設定
                 var ploppableAsphaltType = GetPloppableAsphaltType();
                 if (ploppableAsphaltType != null)
                 {
@@ -182,8 +186,23 @@ namespace CS1Profiler.Harmony
                         if (!loaded)
                         {
                             loadedField.SetValue(null, true);
+                            
+                            // 初回は必ず実行（プロップ透明化防止）
+                            OptimizedApplyProperties(ploppableAsphaltType);
+                            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix: Initial ApplyProperties executed (transparency prevention)");
+                            
                             _skippedHeavyInitCount++;
-                            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix: Heavy initialization SKIPPED (838.78ms spike avoided) - Count: {_skippedHeavyInitCount}");
+                        }
+                        else
+                        {
+                            // 定期実行でプロップの表示を維持
+                            int currentFrame = Time.frameCount;
+                            if (currentFrame - _lastApplyPropertiesFrame > ApplyPropertiesInterval)
+                            {
+                                OptimizedApplyProperties(ploppableAsphaltType);
+                                _lastApplyPropertiesFrame = currentFrame;
+                                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix: Periodic ApplyProperties (frame {currentFrame})");
+                            }
                         }
                     }
                 }
@@ -193,6 +212,29 @@ namespace CS1Profiler.Harmony
             catch (Exception e)
             {
                 UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} SkipHeavyInitialization error: {e.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 最適化されたApplyProperties実行
+        /// 視覚的な問題を防ぎつつパフォーマンスを向上
+        /// </summary>
+        private static void OptimizedApplyProperties(Type ploppableAsphaltType)
+        {
+            try
+            {
+                // ApplyPropertiesメソッドを取得
+                var applyPropertiesMethod = ploppableAsphaltType.GetMethod("ApplyProperties", BindingFlags.Static | BindingFlags.Public);
+                if (applyPropertiesMethod != null)
+                {
+                    // 直接実行（透明化問題を防ぐため、パフォーマンス問題は他の方法で解決）
+                    applyPropertiesMethod.Invoke(null, null);
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} ApplyProperties executed (visual integrity preserved)");
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} OptimizedApplyProperties error: {e.Message}");
             }
         }
         

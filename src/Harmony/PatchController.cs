@@ -24,6 +24,7 @@ namespace CS1Profiler.Harmony
         private static readonly StartupAnalysisPatchProvider _startupAnalysisProvider = new StartupAnalysisPatchProvider();
         private static readonly RenderItOptimizationPatchProvider _renderItOptimizationProvider = new RenderItOptimizationPatchProvider();
         private static readonly PloppableAsphaltFixOptimizationPatchProvider _ploppableAsphaltFixProvider = new PloppableAsphaltFixOptimizationPatchProvider();
+        private static readonly GameSettingsOptimizationPatchProvider _gameSettingsOptimizationProvider = new GameSettingsOptimizationPatchProvider();
 
         /// <summary>
         /// システム初期化
@@ -144,6 +145,20 @@ namespace CS1Profiler.Harmony
             {
                 if (_initialized)
                     SetPatchEnabled(_ploppableAsphaltFixProvider, value);
+            }
+        }
+
+        /// <summary>
+        /// GameSettings最適化パッチの有効/無効（型安全）
+        /// 保存間隔を1秒から1分に変更
+        /// </summary>
+        public static bool GameSettingsOptimizationEnabled
+        {
+            get => _gameSettingsOptimizationProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_gameSettingsOptimizationProvider, value);
             }
         }
 
@@ -282,6 +297,11 @@ namespace CS1Profiler.Harmony
                 if (_ploppableAsphaltFixProvider.DefaultEnabled)
                 {
                     _ploppableAsphaltFixProvider.Enable(_harmony);
+                }
+                
+                if (_gameSettingsOptimizationProvider.DefaultEnabled)
+                {
+                    _gameSettingsOptimizationProvider.Enable(_harmony);
                 }
                 
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Default patches applied");

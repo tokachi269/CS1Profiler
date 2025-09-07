@@ -137,7 +137,6 @@ namespace CS1Profiler.Harmony
                    type.FullName?.StartsWith("ExtendedAssetEditor") == true ||
                    type.FullName?.StartsWith("CS1Profiler") == true ||
                    type.FullName?.StartsWith("JsonFx") == true ||
-                   type.FullName?.StartsWith("LineToolMod") == true ||
                    // Harmony関連MOD除外
                    type.FullName?.Contains("PatchAll") == true ||
                    type.FullName?.Contains("Harmony") == true ||
@@ -214,8 +213,7 @@ namespace CS1Profiler.Harmony
                    methodName.Equals("postfixmethod") ||
                    methodName.Equals("transpilemethod") ||
                    methodName.Equals("unpatchmethod") ||
-                   methodName.Contains("patch") && (methodName.Contains("prefix") || methodName.Contains("postfix") || methodName.Contains("transpile")) ||
-                   method.GetParameters().Length > 10; // パラメータが多すぎるメソッドは除外
+                   methodName.Contains("patch") && (methodName.Contains("prefix") || methodName.Contains("postfix") || methodName.Contains("transpile"));
         }
     }
     

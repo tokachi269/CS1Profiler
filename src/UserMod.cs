@@ -5,6 +5,8 @@ using UnityEngine;
 using CS1Profiler.Managers;
 using CS1Profiler.Harmony;
 using CS1Profiler.Core;
+using CS1Profiler.UI;
+using CS1Profiler.TranslationFramework;
 
 namespace CS1Profiler
 {
@@ -41,6 +43,31 @@ namespace CS1Profiler
         private static bool _performanceProfilingTimerActive = false;
         private static bool _simulationProfilingTimerActive = false;
 
+        // SettingsUIからアクセス可能なプロパティ
+        public static bool PerformanceProfilingTimerActive 
+        { 
+            get { return _performanceProfilingTimerActive; } 
+            set { _performanceProfilingTimerActive = value; } 
+        }
+        
+        public static bool SimulationProfilingTimerActive 
+        { 
+            get { return _simulationProfilingTimerActive; } 
+            set { _simulationProfilingTimerActive = value; } 
+        }
+        
+        public static DateTime PerformanceProfilingStartTime 
+        { 
+            get { return _performanceProfilingStartTime; } 
+            set { _performanceProfilingStartTime = value; } 
+        }
+        
+        public static DateTime SimulationProfilingStartTime 
+        { 
+            get { return _simulationProfilingStartTime; } 
+            set { _simulationProfilingStartTime = value; } 
+        }
+
         // IUserMod必須プロパティ
         public string Name 
         { 
@@ -55,6 +82,21 @@ namespace CS1Profiler
         public void OnEnabled()
         {
             UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} === MOD OnEnabled (ProfilerManager Architecture) ===");
+            
+            // 翻訳システムの初期化
+            try
+            {
+                // Translationsクラスのインスタンスを一度アクセスして初期化
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Initializing translation system...");
+                string testTranslation = Translations.Translate("tooltip.enable_harmony_patches");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Test translation result: '{testTranslation}'");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Translation system initialized successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to initialize translation system: {e.Message}");
+                UnityEngine.Debug.LogException(e);
+            }
             
             // 起動時解析の開始
             if (_gameStartTime == DateTime.MinValue)
@@ -422,7 +464,7 @@ namespace CS1Profiler
         /// <summary>
         /// MOD一覧をクリップボードにコピー
         /// </summary>
-        private static void CopyModListToClipboard()
+        public static void CopyModListToClipboard()
         {
             try
             {
@@ -436,7 +478,7 @@ namespace CS1Profiler
             }
         }
 
-        private string GetPatchStatus()
+        public string GetPatchStatus()
         {
             var mode = CS1Profiler.Harmony.PatchController.IsLightweightMode ? "Lightweight" : "Analysis";
             return $"Mode: {mode}";
@@ -444,156 +486,15 @@ namespace CS1Profiler
 
         public void OnSettingsUI(UIHelperBase helper)
         {
-            try
-            {
-                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} OnSettingsUI starting...");
-                
-                // グループ1: MOD最適化（ゲームプレイヤーが常に使うもの）
-                var optimizationGroup = helper.AddGroup("MOD Optimizations");
-                
-                optimizationGroup.AddCheckbox("RenderIt Optimization:", 
-                    CS1Profiler.Harmony.PatchController.RenderItOptimizationEnabled, 
-                    (value) => {
-                        CS1Profiler.Harmony.PatchController.RenderItOptimizationEnabled = value;
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt optimization: " + (value ? "ENABLED" : "DISABLED"));
-                    });
-
-                optimizationGroup.AddCheckbox("PloppableAsphaltFix Optimization:", 
-                    CS1Profiler.Harmony.PatchController.PloppableAsphaltFixOptimizationEnabled, 
-                    (value) => {
-                        CS1Profiler.Harmony.PatchController.PloppableAsphaltFixOptimizationEnabled = value;
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PloppableAsphaltFix optimization: " + (value ? "ENABLED" : "DISABLED"));
-                    });
-
-                // グループ2: 性能分析とシステム情報
-                var analysisGroup = helper.AddGroup("Performance Analysis & System");
-                analysisGroup.AddCheckbox("Suppress PackageDeserializer Warnings:", 
-                    CS1Profiler.Harmony.LogSuppressionHooks.SuppressPackageDeserializerLogs, 
-                    (value) => {
-                        CS1Profiler.Harmony.LogSuppressionHooks.SuppressPackageDeserializerLogs = value;
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} PackageDeserializer log suppression: " + (value ? "ENABLED" : "DISABLED"));
-                    });
-                // ステータス情報
-                string profilingStatus = "STOPPED";
-                string csvPath = "Not available";
-                
-                try
-                {
-                    if (ProfilerManager.Instance != null)
-                    {
-                        profilingStatus = ProfilerManager.Instance.IsProfilingEnabled() ? "ACTIVE" : "STOPPED";
-                        csvPath = ProfilerManager.Instance.GetCsvPath();
-                        if (!string.IsNullOrEmpty(csvPath) && csvPath.Length > 50)
-                        {
-                            csvPath = "..." + csvPath.Substring(csvPath.Length - 47);
-                        }
-                    }
-                }
-                catch
-                {
-                    profilingStatus = "ERROR";
-                    csvPath = "Unable to get path";
-                }
-                
-                analysisGroup.AddTextfield("Profiling Status:", profilingStatus, null);
-                analysisGroup.AddTextfield("CSV Output:", csvPath, null);
-                
-                // Performance & Simulation Profiling - 5分間の一時計測ボタン（統合版）
-                bool anyProfilingActive = _performanceProfilingTimerActive || _simulationProfilingTimerActive;
-                
-                // 分析制御ボタン（常に表示）
-                analysisGroup.AddButton("Start 5-min Analysis", () => {
-                    try
-                    {
-                        // Performance Profiling開始（パッチ適用）
-                        CS1Profiler.Harmony.PatchController.PerformanceProfilingEnabled = true;
-                        _performanceProfilingStartTime = DateTime.Now;
-                        _performanceProfilingTimerActive = true;
-                        
-                        // Simulation Profiling開始（パッチ適用）
-                        CS1Profiler.Harmony.PatchController.SimulationProfilingEnabled = true;
-                        _simulationProfilingStartTime = DateTime.Now;
-                        _simulationProfilingTimerActive = true;
-                        
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Complete analysis started (Performance + Simulation, 5-minute timer)");
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Waiting 10 seconds before starting CSV output (patch stabilization)");
-                        
-                        // 10秒後にCSV出力を開始するコルーチンを開始
-                        if (ProfilerManager.Instance != null)
-                        {
-                            ProfilerManager.Instance.StartCoroutine(StartCSVOutputAfterDelay());
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start analysis: " + ex.Message);
-                        // エラー時はタイマーをリセット
-                        _performanceProfilingTimerActive = false;
-                        _simulationProfilingTimerActive = false;
-                        _performanceProfilingStartTime = DateTime.MinValue;
-                        _simulationProfilingStartTime = DateTime.MinValue;
-                    }
-                });
-                
-                analysisGroup.AddButton("⏹️ Stop Analysis", () => {
-                    // Performance Profiling停止
-                    if (_performanceProfilingTimerActive)
-                    {
-                        CS1Profiler.Harmony.PatchController.PerformanceProfilingEnabled = false;
-                        _performanceProfilingTimerActive = false;
-                        _performanceProfilingStartTime = DateTime.MinValue;
-                    }
-                    
-                    // Simulation Profiling停止
-                    if (_simulationProfilingTimerActive)
-                    {
-                        CS1Profiler.Harmony.PatchController.SimulationProfilingEnabled = false;
-                        _simulationProfilingTimerActive = false;
-                        _simulationProfilingStartTime = DateTime.MinValue;
-                    }
-                    
-                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Complete analysis stopped manually (Performance + Simulation)");
-                });
-                
-                // System Information
-                analysisGroup.AddTextfield("Current Status:", GetPatchStatus(), null);
-                
-                // システム情報
-                analysisGroup.AddSpace(10);
-                analysisGroup.AddTextfield("MOD Version:", "1.0.0", null);
-                analysisGroup.AddTextfield("Framework:", System.Environment.Version.ToString(), null);
-                
-                // MOD一覧機能
-                analysisGroup.AddSpace(5);
-                analysisGroup.AddButton("📋 Copy MOD List to Clipboard", () => {
-                    CopyModListToClipboard();
-                });
-                
-                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} OnSettingsUI completed successfully");
-            }
-            catch (System.Exception e)
-            {
-                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} OnSettingsUI failed: " + e.ToString());
-                
-                // フォールバック
-                try
-                {
-                    var fallbackGroup = helper.AddGroup("CS1 Profiler [Error]");
-                    fallbackGroup.AddTextfield("Status:", "Configuration error occurred", null);
-                    fallbackGroup.AddTextfield("Solution:", "Check game logs for details", null);
-                }
-                catch
-                {
-                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Complete UI failure");
-                }
-            }
+            // 設定UI構築をSettingsUIクラスに委譲
+            SettingsUI.BuildSettingsUI(helper, this);
         }
         
         /// <summary>
         /// 10秒待機後にCSV出力を開始するコルーチン
         /// パッチ適用直後の重い処理を避けるため
         /// </summary>
-        private System.Collections.IEnumerator StartCSVOutputAfterDelay()
+        public System.Collections.IEnumerator StartCSVOutputAfterDelay()
         {
             // 10秒待機
             yield return new UnityEngine.WaitForSeconds(10.0f);

@@ -20,18 +20,24 @@ namespace CS1Profiler
             {
                 // RenderItがロードされているかチェック
                 bool renderItFound = false;
+                string renderItVersion = "Unknown";
+                
                 foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
                 {
                     if (assembly.GetName().Name == "RenderIt")
                     {
                         renderItFound = true;
+                        renderItVersion = assembly.GetName().Version?.ToString() ?? "Unknown";
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt detected - Version: {renderItVersion}");
                         break;
                     }
                 }
 
                 if (renderItFound)
                 {
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applying RenderIt optimization patches...");
                     ApplyRenderItPatches(harmony);
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderIt optimization patches applied successfully");
                 }
                 else
                 {

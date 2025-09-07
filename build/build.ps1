@@ -16,6 +16,15 @@ if ($LASTEXITCODE -eq 0) {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
         Copy-Item $sourceDll $outputDir -Force
         
+        # 翻訳ファイルをコピー
+        $translationsSourceDir = "src\Translations"
+        $translationsTargetDir = "$outputDir\Translations"
+        if (Test-Path $translationsSourceDir) {
+            New-Item -ItemType Directory -Path $translationsTargetDir -Force | Out-Null
+            Copy-Item "$translationsSourceDir\*.xml" $translationsTargetDir -Force
+            Write-Host "📝 Translation files copied!" -ForegroundColor Cyan
+        }
+        
         Write-Host "✅ DLL deployed to MOD folder!" -ForegroundColor Green
         Write-Host "🎮 Restart Cities: Skylines to test!" -ForegroundColor Yellow
     } else {

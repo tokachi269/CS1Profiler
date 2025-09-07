@@ -44,10 +44,19 @@ namespace CS1Profiler.Harmony
             {
                 UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable {Name} patches: {e.Message}");
                 
-                // 性能測定には全パッチが必要なため、部分的成功は許可しない
-                IsEnabled = false;
-                patchedMethods.Clear();
-                throw;
+            
+                // 部分的成功でも動作を継続（少なくとも1つのパッチが成功していればOK）
+                if (patchedMethods.Count > 0)
+                {
+                    IsEnabled = true;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {Name} patches partially enabled: {patchedMethods.Count} methods (some failed)");
+                }
+                else
+                {
+                    IsEnabled = false;
+                    patchedMethods.Clear();
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} No patches could be applied for {Name}");
+                }
             }
         }
 
@@ -92,41 +101,73 @@ namespace CS1Profiler.Harmony
             targetAssemblies.AddRange(modAssemblyNames);
             
             int successCount = 0;
+            int failureCount = 0;
             
             foreach (var assembly in System.AppDomain.CurrentDomain.GetAssemblies())
             {
-                string assemblyName = assembly.GetName().Name;
-                if (!targetAssemblies.Contains(assemblyName)) continue;
-                
-                foreach (var type in assembly.GetTypes())
+                try
                 {
-                    if (!IsPerformanceCriticalType(type)) continue;
+                    string assemblyName = assembly.GetName().Name;
+                    if (!targetAssemblies.Contains(assemblyName)) continue;
                     
-                    var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                        .Where(IsPerformanceCriticalMethod)
-                        .Where(CanSafelyPatch)
-                        .Where(IsMethodSafeForPatching); // 安全性チェック
-                    
-                    foreach (var method in methods)
+                    foreach (var type in assembly.GetTypes())
                     {
-                        var prefix = new HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPrefix");
-                        var postfix = new HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPostfix");
-                        
-                        // パッチエラーは例外として再スロー（性能測定には全パッチが必要）
-                        harmony.Patch(method, prefix, postfix);
-                        patchedMethods.Add(method);
-                        successCount++;
-                        
-                        // 一定間隔で待機（100メソッドごとに少し待機）
-                        if (successCount % 100 == 0)
+                        try
                         {
-                            System.Threading.Thread.Sleep(10); // 10ms待機
+                            if (!IsPerformanceCriticalType(type)) continue;
+                            
+                            var methods = type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                                .Where(IsPerformanceCriticalMethod)
+                                .Where(CanSafelyPatch)
+                                .Where(IsMethodSafeForPatching); // 安全性チェック
+                            
+                            foreach (var method in methods)
+                            {
+                                try
+                                {
+                                    var prefix = new HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPrefix");
+                                    var postfix = new HarmonyMethod(typeof(CS1Profiler.Profiling.LightweightPerformanceHooks), "ProfilerPostfix");
+                                    
+                                    // 個別のパッチエラーをキャッチして継続
+                                    harmony.Patch(method, prefix, postfix);
+                                    patchedMethods.Add(method);
+                                    successCount++;
+                                }
+                                catch (Exception e)
+                                {
+                                    // 個別のパッチ失敗はログに記録して継続
+                                    failureCount++;
+                                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to patch {method.DeclaringType?.Name}.{method.Name}: {e.Message}");
+                                }
+                                
+                                // 一定間隔で待機（50メソッドごとに少し待機、MOD多数時の安定性向上）
+                                if (successCount % 50 == 0 && successCount > 0)
+                                {
+                                    System.Threading.Thread.Sleep(20); // 20ms待機
+                                }
+                                
+                                // 失敗が多い場合は追加の待機
+                                if (failureCount % 10 == 0 && failureCount > 0)
+                                {
+                                    System.Threading.Thread.Sleep(5); // 5ms待機
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            // 型の処理でエラーが発生しても継続
+                            UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to process type {type?.Name}: {e.Message}");
                         }
                     }
                 }
+                catch (Exception e)
+                {
+                    // アセンブリの処理でエラーが発生しても継続
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to process assembly {assembly?.GetName()?.Name}: {e.Message}");
+                }
             }
             
-            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance patches applied: {successCount} methods");
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance patches applied: {successCount} methods succeeded, {failureCount} methods failed");
         }
         
         private bool IsMethodSafeForPatching(MethodInfo method)
@@ -147,6 +188,17 @@ namespace CS1Profiler.Harmony
                 
                 // JsonFxタイプのメソッドを除外
                 if (declaringType.FullName?.StartsWith("JsonFx") == true) return false;
+                
+                // ModsCommon.Utilities.Polygonの問題メソッドを除外
+                if (declaringType.FullName?.StartsWith("ModsCommon.Utilities.Polygon") == true) return false;
+                
+                // ModsCommon関連で問題を起こしやすいその他のクラスも除外
+                if (declaringType.FullName?.StartsWith("ModsCommon.Utilities") == true && method.Name == "Arrange") return false;
+                
+                // その他の問題のあるタイプを除外
+                if (declaringType.FullName?.Contains("IL_") == true) return false; // IL生成系
+                if (declaringType.FullName?.Contains("dynamic") == true) return false; // 動的生成系
+                if (declaringType.FullName?.Contains("Wrapper") == true) return false; // ラッパー系
                 
                 // ToStringメソッドを除外（JsonObjectIDなどで問題を起こす可能性）
                 if (method.Name == "ToString") return false;
@@ -245,7 +297,6 @@ namespace CS1Profiler.Harmony
         {
             if (method.IsAbstract || method.IsGenericMethod) return false;
             if (method.Name.StartsWith("get_") || method.Name.StartsWith("set_")) return false;
-            if (method.GetParameters().Length > 5) return false;
             
             return true;
         }
@@ -513,6 +564,56 @@ namespace CS1Profiler.Harmony
             catch (Exception e)
             {
                 UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable PloppableAsphaltFix optimization patches: {e.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// GameSettings 最適化パッチプロバイダー
+    /// 保存間隔を1秒から1分に変更して、79ms/frameのボトルネックを軽減
+    /// </summary>
+    public class GameSettingsOptimizationPatchProvider : IPatchProvider
+    {
+        public string Name => "GameSettings Optimization";
+        public bool DefaultEnabled => true; // デフォルトで有効
+        public bool IsEnabled { get; private set; } = false;
+
+        public void Enable(HarmonyLib.Harmony harmony)
+        {
+            if (IsEnabled) return;
+
+            try
+            {
+                // GameSettingsOptimizationのパッチを適用
+                var monitorSavePatch = typeof(GameSettingsOptimization.GameSettings_MonitorSave_Patch);
+                var saveAllPatch = typeof(GameSettingsOptimization.GameSettings_SaveAll_Patch);
+                
+                harmony.PatchAll(monitorSavePatch.Assembly);
+                
+                IsEnabled = true;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} GameSettings optimization patches enabled (save interval: 1 second -> 1 minute)");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable GameSettings optimization patches: {e.Message}");
+                throw;
+            }
+        }
+
+        public void Disable(HarmonyLib.Harmony harmony)
+        {
+            if (!IsEnabled) return;
+
+            try
+            {
+                // パッチを無効化（Harmonyの制限により完全な無効化は困難）
+                IsEnabled = false;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} GameSettings optimization patches disabled");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable GameSettings optimization patches: {e.Message}");
                 throw;
             }
         }

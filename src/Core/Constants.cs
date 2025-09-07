@@ -31,5 +31,20 @@ namespace CS1Profiler.Core
         /// Performance Monitor GameObject名
         /// </summary>
         public const string PERFORMANCE_MONITOR_NAME = "CS1ProfilerMonitor";
+        
+        /// <summary>
+        /// 型名フィルタープレフィックス（Harmonyパッチ除外用）
+        /// </summary>
+        public const string TYPE_FILTER_PREFIX = "CS1Profiler";
+        
+        /// <summary>
+        /// アセンブリタイトル（Assembly属性で使用可能）
+        /// </summary>
+        public const string ASSEMBLY_TITLE = "CS1Profiler";
+        
+        /// <summary>
+        /// アセンブリバージョン（Assembly属性で使用可能）
+        /// </summary>
+        public const string ASSEMBLY_VERSION = "1.0.0.0";
     }
 }

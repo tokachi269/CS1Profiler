@@ -1,7 +1,4 @@
-﻿// Cities: Skylines (CS1) 用共通定義
-// 依存: CitiesHarmony - Workshop提供の HarmonyLib
-
-using ICities;
+﻿using ICities;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,9 +9,9 @@ using UnityEngine;
 using CS1Profiler.Core;
 
 // Assembly情報を明示的に定義
-[assembly: AssemblyTitle("CS1Profiler")]
+[assembly: AssemblyTitle(Constants.ASSEMBLY_TITLE)]
 [assembly: AssemblyDescription("Cities Skylines performance profiling mod")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion(Constants.ASSEMBLY_VERSION)]
 
 namespace CS1Profiler
 {

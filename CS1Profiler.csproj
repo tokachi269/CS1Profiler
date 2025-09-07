@@ -30,6 +30,11 @@
     <Compile Include="src\Core\Common.cs" />
     <Compile Include="src\Core\Constants.cs" />
     <Compile Include="src\UserMod.cs" />
+    <!-- UI: ユーザーインターフェース -->
+    <Compile Include="src\UI\SettingsUI.cs" />
+    <!-- TranslationFramework: 多言語対応 -->
+    <Compile Include="src\TranslationFramework\TranslationFramework.cs" />
+    <Compile Include="src\TranslationFramework\TranslationXML.cs" />
     <!-- Managers: 管理クラス -->
     <Compile Include="src\Managers\ProfilerManager.cs" />
     <Compile Include="src\Managers\CSVManager.cs" />
@@ -41,6 +46,7 @@
     <Compile Include="src\Profiling\ProfileData.cs" />
     <Compile Include="src\Profiling\MPSCLogger.cs" />
     <Compile Include="src\Profiling\LightweightPerformanceHooks.cs" />
+    <Compile Include="src\Profiling\SettingsExporter.cs" />
     <!-- Harmony: パッチとフック処理 -->
     <Compile Include="src\Harmony\IPatchProvider.cs" />
     <Compile Include="src\Harmony\PatchProviders.cs" />
@@ -48,6 +54,7 @@
     <Compile Include="src\Harmony\MainPatcher.cs" />
     <Compile Include="src\Harmony\PerformancePatcher.cs" />
     <Compile Include="src\Harmony\PloppableAsphaltFixOptimization.cs" />
+    <Compile Include="src\Harmony\GameSettingsOptimization.cs" />
     <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
     <Compile Include="src\Harmony\SimulationPatcher.cs" />
     <Compile Include="src\Harmony\RenderItOptimization.cs" />
@@ -82,6 +89,13 @@
   <!-- ビルド後にDLLのみを出力先にコピー -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Message Text="Mod built successfully! DLL copied to: $(OutputPath)" Importance="high" />
+    
+    <!-- 翻訳ファイルをコピー -->
+    <ItemGroup>
+      <TranslationFiles Include="src\Translations\*.xml" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TranslationFiles)" DestinationFolder="$(OutputPath)Translations" />
+    <Message Text="Translation files copied to: $(OutputPath)Translations" Importance="high" />
   </Target>
 
 </Project>
