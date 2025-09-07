@@ -1,11 +1,14 @@
 using ICities;
 using System;
+using System.Linq;
 using UnityEngine;
 using CS1Profiler.Core;
 using CS1Profiler.Managers;
 using CS1Profiler.Harmony;
 using ColossalFramework.UI;
 using CS1Profiler.TranslationFramework;
+using ColossalFramework;
+using ColossalFramework.Plugins;
 
 namespace CS1Profiler.UI
 {
@@ -146,56 +149,59 @@ namespace CS1Profiler.UI
                 
                 // 分析制御ボタン（常に表示）
                 CreateButtonWithTooltip(analysisGroup, "Start 5-min Analysis", () => {
-                    try
-                    {
-                        // Performance Profiling開始（パッチ適用）
-                        PatchController.PerformanceProfilingEnabled = true;
-                        Mod.PerformanceProfilingStartTime = DateTime.Now;
-                        Mod.PerformanceProfilingTimerActive = true;
-                        
-                        // Simulation Profiling開始（パッチ適用）
-                        PatchController.SimulationProfilingEnabled = true;
-                        Mod.SimulationProfilingStartTime = DateTime.Now;
-                        Mod.SimulationProfilingTimerActive = true;
-                        
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Complete analysis started (Performance + Simulation, 5-minute timer)");
-                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Waiting 10 seconds before starting CSV output (patch stabilization)");
-                        
-                        // 10秒後にCSV出力を開始するコルーチンを開始
-                        if (ProfilerManager.Instance != null)
-                        {
-                            ProfilerManager.Instance.StartCoroutine(modInstance.StartCSVOutputAfterDelay());
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start analysis: " + ex.Message);
-                        // エラー時はタイマーをリセット
-                        Mod.PerformanceProfilingTimerActive = false;
-                        Mod.SimulationProfilingTimerActive = false;
-                        Mod.PerformanceProfilingStartTime = DateTime.MinValue;
-                        Mod.SimulationProfilingStartTime = DateTime.MinValue;
-                    }
+                    ShowPerformanceAnalysisWarning();
                 }, "tooltip.enable_simulation_timer");
                 
-                CreateButtonWithTooltip(analysisGroup, "⏹️ Stop Analysis", () => {
-                    // Performance Profiling停止
+                CreateButtonWithTooltip(analysisGroup, "Stop Analysis", () => {
+                    // 1. 即座にCSV自動出力を停止
+                    Mod.SetCsvAutoOutputEnabled(false);
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} CSV auto-output DISABLED immediately");
+                    
+                    // 2. 最後のCSV出力を実行
+                    var profilerManager = ProfilerManager.Instance;
+                    if (profilerManager != null)
+                    {
+                        try
+                        {
+                            profilerManager.ExportToCSV();
+                            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Final CSV export completed before stop");
+                        }
+                        catch (Exception e)
+                        {
+                            UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error during final CSV export: {e.Message}");
+                        }
+                    }
+                    
+                    // 3. Performance Profiling停止
                     if (Mod.PerformanceProfilingTimerActive)
                     {
                         PatchController.PerformanceProfilingEnabled = false;
                         Mod.PerformanceProfilingTimerActive = false;
                         Mod.PerformanceProfilingStartTime = DateTime.MinValue;
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance profiling stopped");
                     }
                     
-                    // Simulation Profiling停止
+                    // 4. Simulation Profiling停止
                     if (Mod.SimulationProfilingTimerActive)
                     {
                         PatchController.SimulationProfilingEnabled = false;
                         Mod.SimulationProfilingTimerActive = false;
                         Mod.SimulationProfilingStartTime = DateTime.MinValue;
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Simulation profiling stopped");
                     }
                     
-                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Complete analysis stopped manually (Performance + Simulation)");
+                    // 5. パッチを無効化（時間がかかる処理なので最後に実行）
+                    try
+                    {
+                        PatchController.DisablePatches();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} All patches disabled");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error disabling patches: {e.Message}");
+                    }
+                    
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Complete analysis stopped manually (CSV output disabled, Performance + Simulation stopped, Patches disabled)");
                 }, "tooltip.enable_rendering_timer");
                 
                 // System Information
@@ -275,6 +281,140 @@ namespace CS1Profiler.UI
             catch
             {
                 UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Complete UI failure");
+            }
+        }
+        
+        /// <summary>
+        /// パフォーマンス分析開始前の警告ポップアップを表示
+        /// </summary>
+        private static void ShowPerformanceAnalysisWarning()
+        {
+            try
+            {
+                var messageBox = UIView.library.ShowModal<ExceptionPanel>("ExceptionPanel");
+                if (messageBox != null)
+                {
+                    // 多言語対応
+                    string title = Translations.Translate("warning.performance_analysis.title");
+                    string message = Translations.Translate("warning.performance_analysis.message");
+                    string cancelText = Translations.Translate("warning.performance_analysis.button_cancel");
+                    string continueText = Translations.Translate("warning.performance_analysis.button_continue");
+                    
+                    messageBox.SetMessage(
+                        !string.IsNullOrEmpty(title) ? title : "Performance Analysis Warning",
+                        !string.IsNullOrEmpty(message) ? message : 
+                        "⚠️ This function executes heavy processing. Save your game before starting. Continue?",
+                        false
+                    );
+                    
+                    // ExceptionPanelの実際のボタン構造に合わせて修正
+                    var okButton = messageBox.Find<UIButton>("Ok");
+                    var copyButton = messageBox.Find<UIButton>("Copy");
+                    
+                    if (okButton != null)
+                    {
+                        okButton.text = !string.IsNullOrEmpty(continueText) ? continueText : "Continue";
+                        // 既存のイベントをクリアしてから新しいイベントを追加
+                        okButton.eventClick += (component, eventParam) => {
+                            messageBox.component.isVisible = false;
+                            StartPerformanceAnalysis();
+                        };
+                    }
+                    
+                    if (copyButton != null)
+                    {
+                        copyButton.text = !string.IsNullOrEmpty(cancelText) ? cancelText : "Cancel";
+                        // 既存のイベントをクリアしてから新しいイベントを追加
+                        copyButton.eventClick += (component, eventParam) => {
+                            messageBox.component.isVisible = false;
+                        };
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to show warning dialog: {e.Message}");
+                // ポップアップ表示に失敗した場合は直接開始
+                StartPerformanceAnalysis();
+            }
+        }
+        
+        /// <summary>
+        /// 実際にパフォーマンス分析を開始
+        /// </summary>
+        private static void StartPerformanceAnalysis()
+        {
+            try
+            {
+                // Performance Profiling開始（パッチ適用）
+                PatchController.PerformanceProfilingEnabled = true;
+                Mod.PerformanceProfilingStartTime = DateTime.Now;
+                Mod.PerformanceProfilingTimerActive = true;
+                
+                // Simulation Profiling開始（パッチ適用）
+                PatchController.SimulationProfilingEnabled = true;
+                Mod.SimulationProfilingStartTime = DateTime.Now;
+                Mod.SimulationProfilingTimerActive = true;
+                
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} ⚠️ HEAVY ANALYSIS STARTED - Performance + Simulation (5-minute timer)");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Please avoid heavy operations. Analysis will auto-stop after 5 minutes.");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Waiting 10 seconds before starting CSV output (patch stabilization)");
+                
+                // 10秒後にCSV出力を開始するコルーチンを開始
+                if (ProfilerManager.Instance != null)
+                {
+                    try
+                    {
+                        var plugins = PluginManager.instance.GetPluginsInfo();
+                        var cs1ProfilerPlugin = plugins.Where(p => p.name.Contains("CS1Profiler")).FirstOrDefault();
+                        var userMod = cs1ProfilerPlugin?.userModInstance as Mod;
+                        if (userMod != null)
+                        {
+                            ProfilerManager.Instance.StartCoroutine(userMod.StartCSVOutputAfterDelay());
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Could not start CSV delay coroutine: {e.Message}");
+                    }
+                }
+                
+                // セーブ推奨メッセージを表示
+                ShowSaveRecommendationToast();
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start analysis: " + ex.Message);
+                // エラー時はタイマーをリセット
+                Mod.PerformanceProfilingTimerActive = false;
+                Mod.SimulationProfilingTimerActive = false;
+                Mod.PerformanceProfilingStartTime = DateTime.MinValue;
+                Mod.SimulationProfilingStartTime = DateTime.MinValue;
+            }
+        }
+        
+        /// <summary>
+        /// セーブ推奨のトーストメッセージを表示
+        /// </summary>
+        private static void ShowSaveRecommendationToast()
+        {
+            try
+            {
+                // 多言語対応のログメッセージ
+                string saveRecommendation = Translations.Translate("warning.performance_analysis.save_recommendation");
+                string timerInfo = Translations.Translate("warning.performance_analysis.timer_info");
+                
+                string saveMsg = !string.IsNullOrEmpty(saveRecommendation) ? saveRecommendation : 
+                    "💾 RECOMMENDATION: Please save your game now for safety!";
+                string timerMsg = !string.IsNullOrEmpty(timerInfo) ? timerInfo : 
+                    "⏱️ Analysis will run for 5 minutes and auto-stop";
+                
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {saveMsg}");
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {timerMsg}");
+            }
+            catch
+            {
+                // 何もしない（安全のため）
             }
         }
     }

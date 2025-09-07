@@ -33,9 +33,6 @@ PluginManager.assetStateSettingsFile = Settings.userGameState;
 #### ファイルサイズ問題の根本原因
 ```
 userGameState.cgs         2618.11 KB (2.6MB) ⚠️ MOD状態管理が異常肥大化
-userGameStatem.cgs        2355.69 KB 
-userGameState (2).cgs     2311.04 KB
-gameSettings.cgs          1.1 KB (正常サイズ)
 ```
 
 #### 実行頻度と影響

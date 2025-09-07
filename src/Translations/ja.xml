@@ -10,5 +10,13 @@
     <Translation ID="tooltip.export_logs" String="有効なMODリストを「WorkshopID MOD名」形式でクリップボードにコピーします。サポート依頼時に便利です" />
     <Translation ID="tooltip.export_usergamestate" String="userGameState.cgsファイルの内容をJSON形式でクリップボードにコピーします。2.6MBファイルの詳細分析に使用" />
     <Translation ID="tooltip.export_all_settings" String="全設定ファイルの概要情報（サイズ、パス、状態）をJSON形式でクリップボードにコピーします" />
+    
+    <!-- Performance Analysis Warning Dialog -->
+    <Translation ID="warning.performance_analysis.title" String="パフォーマンス分析の警告" />
+    <Translation ID="warning.performance_analysis.message" String="パフォーマンス分析について\n\nこの機能は重い処理を実行します：\n• 全メソッドの実行時間を計測\n• 5分間継続して動作\n• FPSが一時的に低下する可能性\n\n 推奨事項：\n• 開始前にゲームをセーブしてください\n• 都市の重要な操作は避けてください\n• 自動で5分後に停止します\n\n続行しますか？" />
+    <Translation ID="warning.performance_analysis.button_cancel" String="戻る" />
+    <Translation ID="warning.performance_analysis.button_continue" String="続行 (分析開始)" />
+    <Translation ID="warning.performance_analysis.save_recommendation" String="推奨: 安全のため今すぐゲームをセーブしてください！" />
+    <Translation ID="warning.performance_analysis.timer_info" String="分析は5分間実行され、自動で停止します" />
   </Translations>
 </Language>

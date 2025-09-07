@@ -68,6 +68,18 @@ namespace CS1Profiler
             set { _simulationProfilingStartTime = value; } 
         }
 
+        // CSV出力制御メソッド
+        public static void SetCsvAutoOutputEnabled(bool enabled)
+        {
+            _csvAutoOutputEnabled = enabled;
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} CSV auto-output set to: {enabled}");
+        }
+        
+        public static bool GetCsvAutoOutputEnabled()
+        {
+            return _csvAutoOutputEnabled;
+        }
+
         // IUserMod必須プロパティ
         public string Name 
         { 

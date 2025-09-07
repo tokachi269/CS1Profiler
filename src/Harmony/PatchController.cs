@@ -335,5 +335,55 @@ namespace CS1Profiler.Harmony
             UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} StartupAnalysis: {(_startupAnalysisProvider.IsEnabled ? "ACTIVE" : "INACTIVE")} (Default: {(_startupAnalysisProvider.DefaultEnabled ? "ON" : "OFF")})");
             UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Current Mode: {(IsLightweightMode ? "Lightweight" : "Analysis")}");
         }
+        
+        /// <summary>
+        /// すべてのアクティブなパッチを無効化
+        /// </summary>
+        public static void DisablePatches()
+        {
+            try
+            {
+                EnsureInitialized();
+                
+                // パフォーマンスプロファイリング停止
+                if (_performanceProvider.IsEnabled)
+                {
+                    PerformanceProfilingEnabled = false;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance profiling disabled");
+                }
+                
+                // シミュレーションプロファイリング停止
+                if (_simulationProvider.IsEnabled)
+                {
+                    SimulationProfilingEnabled = false;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Simulation profiling disabled");
+                }
+                
+                // ログ抑制停止
+                if (_logSuppressionProvider.IsEnabled)
+                {
+                    LogSuppressionEnabled = false;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Log suppression disabled");
+                }
+                
+                // スタートアップ分析停止
+                if (_startupAnalysisProvider.IsEnabled)
+                {
+                    StartupAnalysisEnabled = false;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Startup analysis disabled");
+                }
+                
+                // 最適化パッチ停止
+                RenderItOptimizationEnabled = false;
+                PloppableAsphaltFixOptimizationEnabled = false;
+                GameSettingsOptimizationEnabled = false;
+                
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} All patches disabled successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Error disabling patches: {e.Message}");
+            }
+        }
     }
 }

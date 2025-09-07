@@ -10,5 +10,13 @@
     <Translation ID="tooltip.export_logs" String="Copies enabled MOD list in 'WorkshopID ModName' format to clipboard. Useful for support requests" />
     <Translation ID="tooltip.export_usergamestate" String="Exports userGameState.cgs file content as JSON to clipboard. Used for detailed analysis of the 2.6MB file" />
     <Translation ID="tooltip.export_all_settings" String="Exports summary information (size, path, status) of all settings files as JSON to clipboard" />
+    
+    <!-- Performance Analysis Warning Dialog -->
+    <Translation ID="warning.performance_analysis.title" String="Performance Analysis Warning" />
+    <Translation ID="warning.performance_analysis.message" String="About Performance Analysis\n\nThis function executes heavy processing:\n• Measures execution time of all methods\n• Runs continuously for 5 minutes\n• May cause temporary FPS drops\n\n⭐ Recommendations:\n• Save your game before starting\n• Avoid important city operations\n• Will automatically stop after 5 minutes\n\nDo you want to continue?" />
+    <Translation ID="warning.performance_analysis.button_cancel" String="Cancel" />
+    <Translation ID="warning.performance_analysis.button_continue" String="Continue (Start Analysis)" />
+    <Translation ID="warning.performance_analysis.save_recommendation" String="RECOMMENDATION: Please save your game now for safety!" />
+    <Translation ID="warning.performance_analysis.timer_info" String="Analysis will run for 5 minutes and auto-stop" />
   </Translations>
 </Language>

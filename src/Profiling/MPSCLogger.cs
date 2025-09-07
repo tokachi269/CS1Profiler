@@ -109,6 +109,23 @@ namespace CS1Profiler.Profiling
             // ★即座停止チェック（running + forceStop）
             if (!_running || _forceStop) return;
             
+            // ThreadProfiler除外フィルター（プロファイラー無限ループ防止）
+            if (methodInfo?.DeclaringType != null)
+            {
+                var typeName = methodInfo.DeclaringType.Name;
+                var fullTypeName = methodInfo.DeclaringType.FullName ?? "";
+                var methodName = methodInfo.Name?.ToLower() ?? "";
+                
+                if (typeName.Contains("ThreadProfiler") ||
+                    fullTypeName.Contains("ThreadProfiler") ||
+                    methodName.Contains("continuestep") ||
+                    methodName.Contains("pausestep") ||
+                    methodName.Contains("threadprofiler"))
+                {
+                    return; // ThreadProfiler関連は記録しない
+                }
+            }
+            
             // Lock-free Ring Buffer書き込み（.NET 3.5対応）
             int currentWrite = System.Threading.Interlocked.Increment(ref _writeIndex) - 1;
             int bufferIndex = currentWrite & (RING_BUFFER_SIZE - 1); // 高速ビット演算

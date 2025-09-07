@@ -42,6 +42,17 @@ namespace CS1Profiler.Harmony
                 }
                 
                 patchedMethods.Clear();
+                
+                // FPS Booster最適化パッチを無効化
+                try
+                {
+                    FpsBoosterOptimization.Disable();
+                }
+                catch (Exception fpsBoosterError)
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} FPS Booster optimization disable failed: {fpsBoosterError.Message}");
+                }
+                
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removed {removedCount} performance patches");
             }
             catch (Exception e)
@@ -98,6 +109,16 @@ namespace CS1Profiler.Harmony
                 }
                 
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applied {patchCount} performance patches using blacklist system");
+                
+                // FPS Booster最適化パッチを適用
+                try
+                {
+                    FpsBoosterOptimization.Enable(harmony);
+                }
+                catch (Exception fpsBoosterError)
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} FPS Booster optimization failed: {fpsBoosterError.Message}");
+                }
             }
             catch (Exception e)
             {
@@ -190,6 +211,26 @@ namespace CS1Profiler.Harmony
 
         private static bool IsBlacklistedMethod(string methodName, MethodInfo method)
         {
+            // ThreadProfiler関連メソッドを除外（プロファイラーの無限ループを防止）
+            var typeName = method.DeclaringType?.Name ?? "";
+            var fullTypeName = method.DeclaringType?.FullName ?? "";
+            
+            if (typeName.Contains("ThreadProfiler") ||
+                fullTypeName.Contains("ThreadProfiler") ||
+                typeName.Contains("Profiler") && (typeName.Contains("Thread") || typeName.Contains("Performance")) ||
+                methodName.Contains("continuephase") ||
+                methodName.Contains("pausephase") ||
+                methodName.Contains("continuestep") ||
+                methodName.Contains("pausestep") ||
+                methodName.Contains("profilerstep") ||
+                methodName.Contains("profilerpause") ||
+                methodName.Contains("profilercontinue") ||
+                methodName.Contains("threadprofiler") ||
+                methodName.Contains("profilerthread"))
+            {
+                return true;
+            }
+            
             return methodName.StartsWith("get_") ||
                    methodName.StartsWith("set_") ||
                    methodName.StartsWith("add_") ||
