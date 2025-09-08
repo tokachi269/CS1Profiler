@@ -35,6 +35,30 @@ namespace CS1Profiler.Harmony
         private static Type _loadingManagerType;
         private static PropertyInfo _loadingManagerInstanceProperty;
         private static FieldInfo _loadingCompleteField;
+        
+        // RenderManager関連のキャッシュ
+        private static Type _renderManagerType;
+        private static FieldInfo _currentFrameField;
+        private static FieldInfo _outOfInstancesField;
+        private static FieldInfo _lightSystemField;
+        private static FieldInfo _overlayBufferField;
+        private static MethodInfo _updateCameraInfoMethod;
+        private static MethodInfo _updateColorMapMethod;
+        private static FieldInfo _cameraInfoField;
+        private static FieldInfo _renderablesField;
+        private static FieldInfo _renderedGroupsField;
+        private static FieldInfo _groupsField;
+        private static FieldInfo _megaGroupsField;
+        
+        // FastList関連のキャッシュ
+        private static MethodInfo _clearMethod;
+        private static MethodInfo _addMethod;
+        private static FieldInfo _sizeField;
+        private static FieldInfo _bufferField;
+        
+        // LightSystem関連のキャッシュ
+        private static MethodInfo _lightSystemEndRenderingMethod;
+        
         private static bool _cachesInitialized = false;
         
         public static bool IsEnabled => _isEnabled;
@@ -271,6 +295,45 @@ namespace CS1Profiler.Harmony
                         BindingFlags.Public | BindingFlags.Instance);
                 }
                 
+                // RenderManager関連キャッシュ
+                _renderManagerType = GetRenderManagerType();
+                if (_renderManagerType != null)
+                {
+                    _currentFrameField = _renderManagerType.GetField("m_currentFrame", BindingFlags.NonPublic | BindingFlags.Instance);
+                    _outOfInstancesField = _renderManagerType.GetField("m_outOfInstances", BindingFlags.Public | BindingFlags.Instance);
+                    _lightSystemField = _renderManagerType.GetField("m_lightSystem", BindingFlags.NonPublic | BindingFlags.Instance);
+                    _overlayBufferField = _renderManagerType.GetField("m_overlayBuffer", BindingFlags.Public | BindingFlags.Instance);
+                    _updateCameraInfoMethod = _renderManagerType.GetMethod("UpdateCameraInfo", BindingFlags.Public | BindingFlags.Instance);
+                    _updateColorMapMethod = _renderManagerType.GetMethod("UpdateColorMap", BindingFlags.NonPublic | BindingFlags.Instance);
+                    _cameraInfoField = _renderManagerType.GetField("m_cameraInfo", BindingFlags.NonPublic | BindingFlags.Instance);
+                    _renderablesField = _renderManagerType.GetField("m_renderables", BindingFlags.NonPublic | BindingFlags.Static);
+                    _renderedGroupsField = _renderManagerType.GetField("m_renderedGroups", BindingFlags.Public | BindingFlags.Instance);
+                    _groupsField = _renderManagerType.GetField("m_groups", BindingFlags.Public | BindingFlags.Instance);
+                    _megaGroupsField = _renderManagerType.GetField("m_megaGroups", BindingFlags.Public | BindingFlags.Instance);
+                }
+                
+                // FastList関連のキャッシュ（renderedGroups用）
+                var fastListType = GetTypeFromAssembly("FastList`1");
+                if (fastListType != null)
+                {
+                    var renderGroupType = GetTypeFromAssembly("RenderGroup");
+                    if (renderGroupType != null)
+                    {
+                        var specificFastListType = fastListType.MakeGenericType(renderGroupType);
+                        _clearMethod = specificFastListType.GetMethod("Clear");
+                        _addMethod = specificFastListType.GetMethod("Add");
+                        _sizeField = specificFastListType.GetField("m_size", BindingFlags.Public | BindingFlags.Instance);
+                        _bufferField = specificFastListType.GetField("m_buffer", BindingFlags.Public | BindingFlags.Instance);
+                    }
+                }
+                
+                // LightSystem関連のキャッシュ
+                var lightSystemType = GetTypeFromAssembly("LightSystem");
+                if (lightSystemType != null)
+                {
+                    _lightSystemEndRenderingMethod = lightSystemType.GetMethod("EndRendering");
+                }
+                
                 _cachesInitialized = true;
             }
             catch (Exception e)
@@ -312,20 +375,17 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                // リフレクションを使用してRenderManagerのフィールド・メソッドにアクセス
-                var renderManagerType = renderManagerInstance.GetType();
+                // キャッシュされたフィールドを使用
                 
                 // m_currentFrame += 1U;
-                var currentFrameField = renderManagerType.GetField("m_currentFrame", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (currentFrameField != null)
+                if (_currentFrameField != null)
                 {
-                    uint currentFrame = (uint)currentFrameField.GetValue(renderManagerInstance);
-                    currentFrameField.SetValue(renderManagerInstance, currentFrame + 1U);
+                    uint currentFrame = (uint)_currentFrameField.GetValue(renderManagerInstance);
+                    _currentFrameField.SetValue(renderManagerInstance, currentFrame + 1U);
                 }
                 
                 // m_outOfInstances = false;
-                var outOfInstancesField = renderManagerType.GetField("m_outOfInstances", BindingFlags.Public | BindingFlags.Instance);
-                outOfInstancesField?.SetValue(renderManagerInstance, false);
+                _outOfInstancesField?.SetValue(renderManagerInstance, false);
                 
                 // PrefabPool.m_canCreateInstances = 1;
                 if (_canCreateInstancesField != null)
@@ -341,29 +401,33 @@ namespace CS1Profiler.Harmony
                 }
                 
                 // 元のソースコード: this.m_lightSystem.m_lightBuffer.Clear();
-                var lightSystemField = renderManagerType.GetField("m_lightSystem", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (lightSystemField != null)
+                if (_lightSystemField != null)
                 {
-                    var lightSystem = lightSystemField.GetValue(renderManagerInstance);
+                    var lightSystem = _lightSystemField.GetValue(renderManagerInstance);
                     if (lightSystem != null)
                     {
                         var lightBufferField = lightSystem.GetType().GetField("m_lightBuffer", BindingFlags.Public | BindingFlags.Instance);
                         if (lightBufferField != null)
                         {
                             var lightBuffer = lightBufferField.GetValue(lightSystem);
-                            var clearMethod = lightBuffer.GetType().GetMethod("Clear");
-                            clearMethod?.Invoke(lightBuffer, null);
+                            if (lightBuffer != null)
+                            {
+                                var clearMethod = lightBuffer.GetType().GetMethod("Clear");
+                                clearMethod?.Invoke(lightBuffer, null);
+                            }
                         }
                     }
                 }
                 
                 // 元のソースコード: this.m_overlayBuffer.Clear();
-                var overlayBufferField = renderManagerType.GetField("m_overlayBuffer", BindingFlags.Public | BindingFlags.Instance);
-                if (overlayBufferField != null)
+                if (_overlayBufferField != null)
                 {
-                    var overlayBuffer = overlayBufferField.GetValue(renderManagerInstance);
-                    var clearMethod = overlayBuffer.GetType().GetMethod("Clear");
-                    clearMethod?.Invoke(overlayBuffer, null);
+                    var overlayBuffer = _overlayBufferField.GetValue(renderManagerInstance);
+                    if (overlayBuffer != null)
+                    {
+                        var clearMethod = overlayBuffer.GetType().GetMethod("Clear");
+                        clearMethod?.Invoke(overlayBuffer, null);
+                    }
                 }
                 
                 // 元のソースコード: Singleton<InfoManager>.instance.UpdateInfoMode();
@@ -405,12 +469,11 @@ namespace CS1Profiler.Harmony
                 }
                 
                 // 元のソースコード: this.UpdateCameraInfo();
-                var updateCameraInfoMethod = renderManagerType.GetMethod("UpdateCameraInfo", BindingFlags.Public | BindingFlags.Instance);
-                if (updateCameraInfoMethod != null)
+                if (_updateCameraInfoMethod != null)
                 {
                     try
                     {
-                        updateCameraInfoMethod.Invoke(renderManagerInstance, null);
+                        _updateCameraInfoMethod.Invoke(renderManagerInstance, null);
                     }
                     catch (Exception e)
                     {
@@ -420,25 +483,28 @@ namespace CS1Profiler.Harmony
                 }
                 
                 // 元のソースコード: this.UpdateColorMap();
-                var updateColorMapMethod = renderManagerType.GetMethod("UpdateColorMap", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (updateColorMapMethod != null)
+                if (_updateColorMapMethod != null)
                 {
-                    updateColorMapMethod.Invoke(renderManagerInstance, null);
+                    _updateColorMapMethod.Invoke(renderManagerInstance, null);
                 }
                 
                 // === 元のLateUpdateの完全復元 ===
                 
                 // 元のソースコード: for (int i = 0; i < RenderManager.m_renderables.m_size; i++) { RenderManager.m_renderables.m_buffer[i].BeginRendering(this.m_cameraInfo); }
-                var cameraInfoField = renderManagerType.GetField("m_cameraInfo", BindingFlags.NonPublic | BindingFlags.Instance);
-                var cameraInfo = cameraInfoField?.GetValue(renderManagerInstance);
+                var cameraInfo = _cameraInfoField?.GetValue(renderManagerInstance);
                 
                 // Get m_renderables static field
-                var renderablesField = renderManagerType.GetField("m_renderables", BindingFlags.NonPublic | BindingFlags.Static);
-                var renderables = renderablesField?.GetValue(null);
-                var renderablesSizeProperty = renderables?.GetType().GetField("m_size");
-                var renderablesBufferProperty = renderables?.GetType().GetField("m_buffer");
-                var renderablesSize = (int)(renderablesSizeProperty?.GetValue(renderables) ?? 0);
-                var renderablesBuffer = renderablesBufferProperty?.GetValue(renderables) as Array;
+                var renderables = _renderablesField?.GetValue(null);
+                var renderablesSize = 0;
+                var renderablesBuffer = (Array)null;
+                
+                if (renderables != null)
+                {
+                    var renderablesSizeProperty = renderables.GetType().GetField("m_size");
+                    var renderablesBufferProperty = renderables.GetType().GetField("m_buffer");
+                    renderablesSize = (int)(renderablesSizeProperty?.GetValue(renderables) ?? 0);
+                    renderablesBuffer = renderablesBufferProperty?.GetValue(renderables) as Array;
+                }
                 
                 try
                 {
@@ -526,36 +592,30 @@ namespace CS1Profiler.Harmony
                     int num9 = -10000;
                     
                     // 元のソースコード: this.m_renderedGroups.Clear();
-                    var renderedGroupsField = renderManagerType.GetField("m_renderedGroups", BindingFlags.Public | BindingFlags.Instance);
-                    if (renderedGroupsField == null)
+                    if (_renderedGroupsField == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} m_renderedGroups field not found");
                         return;
                     }
-                    var renderedGroups = renderedGroupsField.GetValue(renderManagerInstance);
+                    var renderedGroups = _renderedGroupsField.GetValue(renderManagerInstance);
                     if (renderedGroups == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} renderedGroups is null");
                         return;
                     }
-                    var clearMethod = renderedGroups.GetType().GetMethod("Clear");
-                    if (clearMethod == null)
+                    if (_clearMethod != null)
                     {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Clear method not found on renderedGroups");
-                        return;
+                        _clearMethod.Invoke(renderedGroups, null);
                     }
-                    clearMethod.Invoke(renderedGroups, null);
                     
                     // 元のグループレンダリングループ
-                    var groupsField = renderManagerType.GetField("m_groups", BindingFlags.Public | BindingFlags.Instance);
-                    var megaGroupsField = renderManagerType.GetField("m_megaGroups", BindingFlags.Public | BindingFlags.Instance);
-                    if (groupsField == null || megaGroupsField == null)
+                    if (_groupsField == null || _megaGroupsField == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} groups or megaGroups fields not found");
                         return;
                     }
-                    var groups = (RenderGroup[])groupsField.GetValue(renderManagerInstance);
-                    var megaGroups = (MegaRenderGroup[])megaGroupsField.GetValue(renderManagerInstance);
+                    var groups = (RenderGroup[])_groupsField.GetValue(renderManagerInstance);
+                    var megaGroups = (MegaRenderGroup[])_megaGroupsField.GetValue(renderManagerInstance);
                     if (groups == null || megaGroups == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} groups or megaGroups arrays are null");
@@ -571,10 +631,9 @@ namespace CS1Profiler.Harmony
                             if (renderGroup != null && renderGroup.Render((RenderManager.CameraInfo)cameraInfo))
                             {
                                 // 元のソースコード: this.m_renderedGroups.Add(renderGroup);
-                                var addMethod = renderedGroups.GetType().GetMethod("Add");
-                                if (addMethod != null)
+                                if (_addMethod != null)
                                 {
-                                    addMethod.Invoke(renderedGroups, new object[] { renderGroup });
+                                    _addMethod.Invoke(renderedGroups, new object[] { renderGroup });
                                 }
                                 
                                 int num11 = k / num5;
@@ -611,15 +670,13 @@ namespace CS1Profiler.Harmony
                     }
                     
                     // 第2段階: RenderGroup.Render(groupMask) - 元のコードの完全復元
-                    var sizeField = renderedGroups.GetType().GetField("m_size", BindingFlags.Public | BindingFlags.Instance);
-                    var bufferField = renderedGroups.GetType().GetField("m_buffer", BindingFlags.Public | BindingFlags.Instance);
-                    if (sizeField == null || bufferField == null)
+                    if (_sizeField == null || _bufferField == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} m_size or m_buffer fields not found on renderedGroups");
                         return;
                     }
-                    int renderedGroupsSize = (int)sizeField.GetValue(renderedGroups);
-                    var renderedGroupsBuffer = (RenderGroup[])bufferField.GetValue(renderedGroups);
+                    int renderedGroupsSize = (int)_sizeField.GetValue(renderedGroups);
+                    var renderedGroupsBuffer = (RenderGroup[])_bufferField.GetValue(renderedGroups);
                     
                     if (renderedGroupsBuffer == null)
                     {
@@ -662,13 +719,20 @@ namespace CS1Profiler.Harmony
                 }
                 
                 // 元のソースコード: this.m_lightSystem.EndRendering(this.m_cameraInfo);
-                if (lightSystemField != null && cameraInfo != null)
+                if (_lightSystemField != null && cameraInfo != null)
                 {
-                    var lightSystem = lightSystemField.GetValue(renderManagerInstance);
+                    var lightSystem = _lightSystemField.GetValue(renderManagerInstance);
                     if (lightSystem != null)
                     {
-                        var endRenderingMethod = lightSystem.GetType().GetMethod("EndRendering");
-                        endRenderingMethod?.Invoke(lightSystem, new object[] { cameraInfo });
+                        if (_lightSystemEndRenderingMethod != null)
+                        {
+                            _lightSystemEndRenderingMethod.Invoke(lightSystem, new object[] { cameraInfo });
+                        }
+                        else
+                        {
+                            var endRenderingMethod = lightSystem.GetType().GetMethod("EndRendering");
+                            endRenderingMethod?.Invoke(lightSystem, new object[] { cameraInfo });
+                        }
                     }
                 }
                 

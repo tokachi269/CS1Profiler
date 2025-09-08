@@ -4,11 +4,20 @@
     <!-- CS1Profiler UI Tooltips -->
     <Translation ID="tooltip.enable_harmony_patches" String="Harmonyパッチを有効にして、ログ抑制などのシステム最適化を実行します" />
     <Translation ID="tooltip.enable_renderit_optimization" String="RenderItMODのパフォーマンス問題を修正し、重いフレーム処理を最適化します" />
+    <Translation ID="tooltip.enable_fpsbooster_analysis" String="RenderManagerのパフォーマンスを分析します。LateUpdate系メソッドをパッチして詳細な実行時間を計測し、最適化の機会を特定します（FPS Booster MOD対応）" />
     <Translation ID="tooltip.enable_simulation_timer" String="5分間のパフォーマンス・シミュレーション分析を開始します。詳細なCSVレポートを生成し、CPU使用率が一時的に増加します" />
     <Translation ID="tooltip.enable_rendering_timer" String="実行中の分析を手動で停止します。通常は5分後に自動停止しますが、必要に応じて早期停止できます" />
     <Translation ID="tooltip.enable_frame_timer" String="フレーム処理時間の計測を有効にして、全体的なパフォーマンスを監視します" />
     <Translation ID="tooltip.export_logs" String="有効なMODリストを「WorkshopID MOD名」形式でクリップボードにコピーします。サポート依頼時に便利です" />
     <Translation ID="tooltip.export_usergamestate" String="userGameState.cgsファイルの内容をJSON形式でクリップボードにコピーします。2.6MBファイルの詳細分析に使用" />
     <Translation ID="tooltip.export_all_settings" String="全設定ファイルの概要情報（サイズ、パス、状態）をJSON形式でクリップボードにコピーします" />
+    
+    <!-- Performance Analysis Warning Dialog -->
+    <Translation ID="warning.performance_analysis.title" String="パフォーマンス分析の警告" />
+    <Translation ID="warning.performance_analysis.message" String="パフォーマンス分析について\n\nこの機能は重い処理を実行します：\n• 全メソッドの実行時間を計測\n• 5分間継続して動作\n• FPSが一時的に低下する可能性\n\n 推奨事項：\n• 開始前にゲームをセーブしてください\n• 都市の重要な操作は避けてください\n• 自動で5分後に停止します\n\n続行しますか？" />
+    <Translation ID="warning.performance_analysis.button_cancel" String="戻る" />
+    <Translation ID="warning.performance_analysis.button_continue" String="続行 (分析開始)" />
+    <Translation ID="warning.performance_analysis.save_recommendation" String="推奨: 安全のため今すぐゲームをセーブしてください！" />
+    <Translation ID="warning.performance_analysis.timer_info" String="分析は5分間実行され、自動で停止します" />
   </Translations>
 </Language>
