@@ -42,17 +42,6 @@ namespace CS1Profiler.Harmony
                 }
                 
                 patchedMethods.Clear();
-                
-                // FPS Booster最適化パッチを無効化
-                try
-                {
-                    FpsBoosterOptimization.Disable();
-                }
-                catch (Exception fpsBoosterError)
-                {
-                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} FPS Booster optimization disable failed: {fpsBoosterError.Message}");
-                }
-                
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Removed {removedCount} performance patches");
             }
             catch (Exception e)
@@ -109,16 +98,6 @@ namespace CS1Profiler.Harmony
                 }
                 
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Applied {patchCount} performance patches using blacklist system");
-                
-                // FPS Booster最適化パッチを適用
-                try
-                {
-                    FpsBoosterOptimization.Enable(harmony);
-                }
-                catch (Exception fpsBoosterError)
-                {
-                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} FPS Booster optimization failed: {fpsBoosterError.Message}");
-                }
             }
             catch (Exception e)
             {

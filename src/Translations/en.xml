@@ -4,6 +4,7 @@
     <!-- CS1Profiler UI Tooltips -->
     <Translation ID="tooltip.enable_harmony_patches" String="Enable Harmony patches to apply system optimizations such as log suppression" />
     <Translation ID="tooltip.enable_renderit_optimization" String="Fixes performance issues in RenderIt MOD. Optimizes heavy frame processing and caches mod enablement checks" />
+    <Translation ID="tooltip.enable_fpsbooster_analysis" String="Analyzes RenderManager performance. Patches LateUpdate methods to measure detailed execution times and identify optimization opportunities (FPS Booster MOD compatible)" />
     <Translation ID="tooltip.enable_simulation_timer" String="Runs performance and simulation analysis for 5 minutes. Generates detailed CSV reports. CPU usage will temporarily increase" />
     <Translation ID="tooltip.enable_rendering_timer" String="Manually stops running analysis. Normally auto-stops after 5 minutes, but can be stopped early if needed" />
     <Translation ID="tooltip.enable_frame_timer" String="Enable frame timing measurement to monitor overall performance" />

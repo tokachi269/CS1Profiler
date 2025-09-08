@@ -102,6 +102,14 @@ namespace CS1Profiler.UI
                     },
                     "tooltip.enable_renderit_optimization");
 
+                CreateCheckboxWithTooltip(optimizationGroup, "RenderManager Optimization:", 
+                    true, // デフォルトON
+                    (value) => {
+                        PatchController.FpsBoosterAnalysisEnabled = value;
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderManager Optimization: " + (value ? "ENABLED" : "DISABLED"));
+                    },
+                    "tooltip.enable_rendermanager_analysis");
+
                 CreateCheckboxWithTooltip(optimizationGroup, "GameSettings Save Optimization:", 
                     PatchController.GameSettingsOptimizationEnabled, 
                     (value) => {

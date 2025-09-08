@@ -55,6 +55,7 @@
     <Compile Include="src\Harmony\PerformancePatcher.cs" />
     <Compile Include="src\Harmony\PloppableAsphaltFixOptimization.cs" />
     <Compile Include="src\Harmony\GameSettingsOptimization.cs" />
+    <Compile Include="src\Harmony\RenderManagerOptimization.cs" />
     <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
     <Compile Include="src\Harmony\SimulationPatcher.cs" />
     <Compile Include="src\Harmony\RenderItOptimization.cs" />

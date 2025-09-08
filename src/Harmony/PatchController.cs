@@ -149,6 +149,25 @@ namespace CS1Profiler.Harmony
         }
 
         /// <summary>
+        /// RenderManager最適化・分析パッチの有効/無効
+        /// RenderManager.LateUpdate系メソッドの詳細分析を行う
+        /// </summary>
+        public static bool FpsBoosterAnalysisEnabled
+        {
+            get => RenderManagerOptimization.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                {
+                    if (value)
+                        RenderManagerOptimization.Enable(_harmony);
+                    else
+                        RenderManagerOptimization.Disable();
+                }
+            }
+        }
+
+        /// <summary>
         /// GameSettings最適化パッチの有効/無効（型安全）
         /// 保存間隔を1秒から1分に変更
         /// </summary>
@@ -302,6 +321,17 @@ namespace CS1Profiler.Harmony
                 if (_gameSettingsOptimizationProvider.DefaultEnabled)
                 {
                     _gameSettingsOptimizationProvider.Enable(_harmony);
+                }
+                
+                // RenderManager分析をデフォルト有効化
+                try
+                {
+                    RenderManagerOptimization.Enable(_harmony);
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} RenderManager analysis enabled by default");
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} Failed to enable RenderManager analysis by default: {e.Message}");
                 }
                 
                 UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Default patches applied");
