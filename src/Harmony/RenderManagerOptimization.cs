@@ -538,8 +538,6 @@ namespace CS1Profiler.Harmony
                     _updateColorMapMethod.Invoke(renderManagerInstance, null);
                 }
                 
-                // === 元のLateUpdateの完全復元 ===
-                
                 // 元のソースコード: for (int i = 0; i < RenderManager.m_renderables.m_size; i++) { RenderManager.m_renderables.m_buffer[i].BeginRendering(this.m_cameraInfo); }
                 var cameraInfo = _cameraInfoField?.GetValue(renderManagerInstance);
                 
