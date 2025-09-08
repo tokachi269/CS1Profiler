@@ -59,6 +59,18 @@ namespace CS1Profiler.Harmony
         // LightSystem関連のキャッシュ
         private static MethodInfo _lightSystemEndRenderingMethod;
         
+        // Renderables関連のキャッシュ（ループ内で使用される高負荷処理）
+        private static FieldInfo _renderablesSizeField;
+        private static FieldInfo _renderablesBufferField;
+        private static MethodInfo _beginRenderingMethod;
+        private static MethodInfo _endRenderingMethod;
+        
+        // CameraInfo関連のキャッシュ（フレーム単位で使用される）
+        private static FieldInfo _cameraInfoBoundsField;
+        private static PropertyInfo _boundsMinProperty;
+        private static PropertyInfo _boundsMaxProperty;
+        private static FieldInfo _cameraInfoShadowOffsetField;
+        
         private static bool _cachesInitialized = false;
         
         public static bool IsEnabled => _isEnabled;
@@ -334,6 +346,39 @@ namespace CS1Profiler.Harmony
                     _lightSystemEndRenderingMethod = lightSystemType.GetMethod("EndRendering");
                 }
                 
+                // Renderables関連のキャッシュ（最優先：ループ内で使用される）
+                var renderablesType = GetTypeFromAssembly("FastList`1");
+                if (renderablesType != null)
+                {
+                    var renderableType = GetTypeFromAssembly("IRenderable");
+                    if (renderableType != null)
+                    {
+                        var specificRenderablesType = renderablesType.MakeGenericType(renderableType);
+                        _renderablesSizeField = specificRenderablesType.GetField("m_size", BindingFlags.Public | BindingFlags.Instance);
+                        _renderablesBufferField = specificRenderablesType.GetField("m_buffer", BindingFlags.Public | BindingFlags.Instance);
+                    }
+                    
+                    // 共通のRendering関連メソッドキャッシュ
+                    if (renderableType != null)
+                    {
+                        _beginRenderingMethod = renderableType.GetMethod("BeginRendering");
+                        _endRenderingMethod = renderableType.GetMethod("EndRendering");
+                    }
+                }
+                
+                // CameraInfo関連のキャッシュ（フレーム単位で使用される）
+                var cameraInfoType = GetTypeFromAssembly("RenderManager+CameraInfo");
+                if (cameraInfoType != null)
+                {
+                    _cameraInfoBoundsField = cameraInfoType.GetField("m_bounds", BindingFlags.Public | BindingFlags.Instance);
+                    _cameraInfoShadowOffsetField = cameraInfoType.GetField("m_shadowOffset", BindingFlags.Public | BindingFlags.Instance);
+                    
+                    // Bounds関連のプロパティ
+                    var boundsType = typeof(UnityEngine.Bounds);
+                    _boundsMinProperty = boundsType.GetProperty("min");
+                    _boundsMaxProperty = boundsType.GetProperty("max");
+                }
+                
                 _cachesInitialized = true;
             }
             catch (Exception e)
@@ -375,19 +420,23 @@ namespace CS1Profiler.Harmony
         {
             try
             {
-                // キャッシュされたフィールドを使用
+                // RenderManagerインスタンスの有効性チェック
+                if (renderManagerInstance == null)
+                {
+                    return;
+                }
                 
-                // m_currentFrame += 1U;
+                // 1. m_currentFrame += 1U;
                 if (_currentFrameField != null)
                 {
                     uint currentFrame = (uint)_currentFrameField.GetValue(renderManagerInstance);
                     _currentFrameField.SetValue(renderManagerInstance, currentFrame + 1U);
                 }
                 
-                // m_outOfInstances = false;
+                // 2. m_outOfInstances = false;
                 _outOfInstancesField?.SetValue(renderManagerInstance, false);
                 
-                // PrefabPool.m_canCreateInstances = 1;
+                // 3. PrefabPool.m_canCreateInstances = 1;
                 if (_canCreateInstancesField != null)
                 {
                     try
@@ -400,7 +449,7 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                // 元のソースコード: this.m_lightSystem.m_lightBuffer.Clear();
+                // 4. this.m_lightSystem.m_lightBuffer.Clear();
                 if (_lightSystemField != null)
                 {
                     var lightSystem = _lightSystemField.GetValue(renderManagerInstance);
@@ -419,7 +468,7 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                // 元のソースコード: this.m_overlayBuffer.Clear();
+                // 5. this.m_overlayBuffer.Clear();
                 if (_overlayBufferField != null)
                 {
                     var overlayBuffer = _overlayBufferField.GetValue(renderManagerInstance);
@@ -430,7 +479,7 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                // 元のソースコード: Singleton<InfoManager>.instance.UpdateInfoMode();
+                // 6. Singleton<InfoManager>.instance.UpdateInfoMode();
                 if (_infoManagerInstanceProperty != null && _updateInfoModeMethod != null)
                 {
                     try
@@ -447,7 +496,7 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
-                // 元のソースコード: if (!Singleton<LoadingManager>.instance.m_loadingComplete) return;
+                // 7. if (!Singleton<LoadingManager>.instance.m_loadingComplete) return;
                 if (_loadingManagerInstanceProperty != null && _loadingCompleteField != null)
                 {
                     try
@@ -458,13 +507,14 @@ namespace CS1Profiler.Harmony
                             var isLoadingComplete = (bool)_loadingCompleteField.GetValue(loadingManagerInstance);
                             if (!isLoadingComplete) 
                             {
-                                return;
+                                return; // ここでロード未完了なら処理終了
                             }
                         }
                     }
                     catch (Exception e)
                     {
                         UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} LoadingManager check failed: {e.Message}");
+                        return; // エラーが発生した場合も処理終了
                     }
                 }
                 
@@ -500,19 +550,45 @@ namespace CS1Profiler.Harmony
                 
                 if (renderables != null)
                 {
-                    var renderablesSizeProperty = renderables.GetType().GetField("m_size");
-                    var renderablesBufferProperty = renderables.GetType().GetField("m_buffer");
-                    renderablesSize = (int)(renderablesSizeProperty?.GetValue(renderables) ?? 0);
-                    renderablesBuffer = renderablesBufferProperty?.GetValue(renderables) as Array;
+                    // キャッシュされたフィールドを使用（高速化）
+                    if (_renderablesSizeField != null && _renderablesBufferField != null)
+                    {
+                        renderablesSize = (int)(_renderablesSizeField.GetValue(renderables) ?? 0);
+                        renderablesBuffer = _renderablesBufferField.GetValue(renderables) as Array;
+                    }
+                    else
+                    {
+                        // フォールバック：リフレクション（低速）
+                        var renderablesSizeProperty = renderables.GetType().GetField("m_size");
+                        var renderablesBufferProperty = renderables.GetType().GetField("m_buffer");
+                        renderablesSize = (int)(renderablesSizeProperty?.GetValue(renderables) ?? 0);
+                        renderablesBuffer = renderablesBufferProperty?.GetValue(renderables) as Array;
+                    }
                 }
                 
                 try
                 {
-                    for (int i = 0; i < renderablesSize; i++)
+                    // 最優先最適化：キャッシュされたメソッドを使用
+                    if (_beginRenderingMethod != null)
                     {
-                        var renderable = renderablesBuffer.GetValue(i);
-                        var beginRenderingMethod = renderable?.GetType().GetMethod("BeginRendering");
-                        beginRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                        for (int i = 0; i < renderablesSize; i++)
+                        {
+                            var renderable = renderablesBuffer.GetValue(i);
+                            if (renderable != null)
+                            {
+                                _beginRenderingMethod.Invoke(renderable, new object[] { cameraInfo });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // フォールバック：リフレクション（低速）
+                        for (int i = 0; i < renderablesSize; i++)
+                        {
+                            var renderable = renderablesBuffer.GetValue(i);
+                            var beginRenderingMethod = renderable?.GetType().GetMethod("BeginRendering");
+                            beginRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                        }
                     }
                 }
                 finally
@@ -529,39 +605,21 @@ namespace CS1Profiler.Harmony
                         return;
                     }
                     
-                    var boundsProperty = cameraInfo.GetType().GetField("m_bounds");
-                    if (boundsProperty == null)
-                    {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} m_bounds field not found");
-                        return;
-                    }
-                    
-                    var bounds = boundsProperty.GetValue(cameraInfo);
+                    // キャッシュされたフィールドを使用（高速化）
+                    var bounds = (_cameraInfoBoundsField != null) ? _cameraInfoBoundsField.GetValue(cameraInfo) : cameraInfo.GetType().GetField("m_bounds")?.GetValue(cameraInfo);
                     if (bounds == null)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} bounds is null");
                         return;
                     }
                     
-                    var minProperty = bounds.GetType().GetProperty("min");
-                    var maxProperty = bounds.GetType().GetProperty("max");
-                    if (minProperty == null || maxProperty == null)
-                    {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} min/max properties not found");
-                        return;
-                    }
+                    var min = (_boundsMinProperty != null) ? (Vector3)_boundsMinProperty.GetValue(bounds, null) : (Vector3)bounds.GetType().GetProperty("min")?.GetValue(bounds, null);
+                    var max = (_boundsMaxProperty != null) ? (Vector3)_boundsMaxProperty.GetValue(bounds, null) : (Vector3)bounds.GetType().GetProperty("max")?.GetValue(bounds, null);
                     
-                    var min = (Vector3)minProperty.GetValue(bounds, null);
-                    var max = (Vector3)maxProperty.GetValue(bounds, null);
-                    
-                    // シャドウオフセット処理
-                    var shadowOffsetProperty = cameraInfo.GetType().GetField("m_shadowOffset");
-                    if (shadowOffsetProperty == null)
-                    {
-                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} m_shadowOffset field not found");
-                        return;
-                    }
-                    var shadowOffset = (Vector3)shadowOffsetProperty.GetValue(cameraInfo);
+                    // シャドウオフセット処理（キャッシュ使用）
+                    var shadowOffset = (_cameraInfoShadowOffsetField != null) ? 
+                        (Vector3)_cameraInfoShadowOffsetField.GetValue(cameraInfo) : 
+                        (Vector3)cameraInfo.GetType().GetField("m_shadowOffset")?.GetValue(cameraInfo);
                     
                     if (shadowOffset.x < 0f)
                     {
@@ -706,12 +764,27 @@ namespace CS1Profiler.Harmony
                 
                 try
                 {
-                    // 元のソースコード: for (int num18 = 0; num18 < RenderManager.m_renderables.m_size; num18++) { RenderManager.m_renderables.m_buffer[num18].EndRendering(this.m_cameraInfo); }
-                    for (int num18 = 0; num18 < renderablesSize; num18++)
+                    // 最優先最適化：キャッシュされたメソッドを使用
+                    if (_endRenderingMethod != null)
                     {
-                        var renderable = renderablesBuffer.GetValue(num18);
-                        var endRenderingMethod = renderable?.GetType().GetMethod("EndRendering");
-                        endRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                        for (int num18 = 0; num18 < renderablesSize; num18++)
+                        {
+                            var renderable = renderablesBuffer.GetValue(num18);
+                            if (renderable != null)
+                            {
+                                _endRenderingMethod.Invoke(renderable, new object[] { cameraInfo });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // フォールバック：リフレクション（低速）
+                        for (int num18 = 0; num18 < renderablesSize; num18++)
+                        {
+                            var renderable = renderablesBuffer.GetValue(num18);
+                            var endRenderingMethod = renderable?.GetType().GetMethod("EndRendering");
+                            endRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                        }
                     }
                 }
                 finally
