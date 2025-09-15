@@ -39,6 +39,7 @@
     <Compile Include="src\Managers\ProfilerManager.cs" />
     <Compile Include="src\Managers\CSVManager.cs" />
     <Compile Include="src\Managers\InstanceManager.cs" />
+    <Compile Include="src\Managers\PropBatchingTestManager.cs" />
     <!-- Profiling: 性能測定関連 -->
     <Compile Include="src\Profiling\MethodProfiler.cs" />
     <Compile Include="src\Profiling\PerformanceProfiler.cs" />
@@ -59,6 +60,7 @@
     <Compile Include="src\Harmony\LogSuppressionPatcher.cs" />
     <Compile Include="src\Harmony\SimulationPatcher.cs" />
     <Compile Include="src\Harmony\RenderItOptimization.cs" />
+    <Compile Include="src\Harmony\BuildingRenderAnalysisPatcher.cs" />
   </ItemGroup>
 
   <ItemGroup>

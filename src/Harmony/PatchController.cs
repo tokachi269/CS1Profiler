@@ -25,6 +25,8 @@ namespace CS1Profiler.Harmony
         private static readonly RenderItOptimizationPatchProvider _renderItOptimizationProvider = new RenderItOptimizationPatchProvider();
         private static readonly PloppableAsphaltFixOptimizationPatchProvider _ploppableAsphaltFixProvider = new PloppableAsphaltFixOptimizationPatchProvider();
         private static readonly GameSettingsOptimizationPatchProvider _gameSettingsOptimizationProvider = new GameSettingsOptimizationPatchProvider();
+        private static readonly BuildingRenderAnalysisPatchProvider _buildingRenderAnalysisProvider = new BuildingRenderAnalysisPatchProvider();
+        private static readonly BuildingRenderInstanceDetailPatchProvider _buildingRenderInstanceDetailProvider = new BuildingRenderInstanceDetailPatchProvider();
 
         /// <summary>
         /// システム初期化
@@ -119,6 +121,34 @@ namespace CS1Profiler.Harmony
             {
                 if (_initialized)
                     SetPatchEnabled(_startupAnalysisProvider, value);
+            }
+        }
+
+        /// <summary>
+        /// Building RenderInstance分析パッチの有効/無効（型安全）
+        /// EndRenderingImpl完全置換による呼び出し分析
+        /// </summary>
+        public static bool BuildingRenderAnalysisEnabled
+        {
+            get => _buildingRenderAnalysisProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_buildingRenderAnalysisProvider, value);
+            }
+        }
+
+        /// <summary>
+        /// Building.RenderInstance詳細分析パッチの有効/無効（型安全）
+        /// 各処理段階の時間を細分化して測定
+        /// </summary>
+        public static bool BuildingRenderInstanceDetailEnabled
+        {
+            get => _buildingRenderInstanceDetailProvider.IsEnabled;
+            set 
+            {
+                if (_initialized)
+                    SetPatchEnabled(_buildingRenderInstanceDetailProvider, value);
             }
         }
 

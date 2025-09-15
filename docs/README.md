@@ -4,9 +4,22 @@ Cities: Skylines用の高性能プロファイラーMOD。Harmonyパッチング
 
 ## 最新機能 (v2.0)
 
+### 🔍 Building.RenderInstance性能分析結果
+詳細な5段階測定により、レンダリング性能ボトルネックの根本原因を発見：
+
+**実測データ**:
+- **RenderMeshes**: 209ms (建物本体メッシュ描画) 
+- **RenderProps**: 2,719ms (**80%以上**の処理時間を占有)
+
+**技術的発見**:
+- Building rendering の大部分は建物本体ではなく**Prop（小物）**のレンダリング
+- `PropInstance.RenderInstance`での個別`Graphics.DrawMesh`呼び出しが主因
+- `MaterialPropertyBlock`更新によるCPU-GPU同期待機
+- **最適化可能性**: PropInstance batching により大幅な性能向上が期待可能
+
 ### 新機能追加
 - **GameSettings最適化**: 2.6MB保存ファイルの書き込み間隔を1秒→1分に最適化
-- **PloppableAsphaltFix最適化**: 838ms スパイクを解消し、透明化バグも修正
+- **PloppableAsphaltFix最適化**: 838ms スパイクを解消し、透明化バグも修正  
 - **警告ダイアログ**: 重い計測開始時に多言語対応の警告とセーブ推奨
 - **Stop機能強化**: CSV自動出力を即座に停止し、安全な終了処理
 - **ThreadProfiler除外**: プロファイラー監視プロファイラーによる無限ループを防止

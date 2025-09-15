@@ -33,3 +33,5 @@ tools/analysis_*/
 
 reference/
 tools/CS1Profiler_*.csv
+tools/method_analysis_*.csv
+/tools/__pycache__

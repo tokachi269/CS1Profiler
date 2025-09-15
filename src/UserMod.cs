@@ -80,6 +80,103 @@ namespace CS1Profiler
             return _csvAutoOutputEnabled;
         }
 
+        // Building RenderInstance分析用のModTools呼び出し可能メソッド
+        // GameObject経由でのアクセス用（ModToolsで確実に動作）
+        /// <summary>
+        /// CS1ProfilerManagerを検索してBuilding分析を開始（ModTools用）
+        /// ModTools使用方法：
+        /// var go = GameObject.Find("CS1ProfilerManager");
+        /// var mod = go.GetComponent&lt;MonoBehaviour&gt;() as CS1Profiler.Mod;
+        /// CS1Profiler.Mod.StartBuildingAnalysisViaGameObject();
+        /// </summary>
+        public static void StartBuildingAnalysisViaGameObject()
+        {
+            try
+            {
+                var go = GameObject.Find(Constants.PROFILER_MANAGER_NAME);
+                if (go != null)
+                {
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Found GameObject: {go.name}, starting Building analysis...");
+                    StartBuildingAnalysis();
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} GameObject '{Constants.PROFILER_MANAGER_NAME}' not found");
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start building analysis via GameObject: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Building分析を開始（ModTools用）
+        /// </summary>
+        public static void StartBuildingAnalysis()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Starting Building RenderInstance analysis...");
+                CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StartAnalysis();
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis started successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start building analysis: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Building分析を停止（ModTools用）
+        /// </summary>
+        public static void StopBuildingAnalysis()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Stopping Building RenderInstance analysis...");
+                CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StopAnalysis();
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis stopped successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to stop building analysis: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Building分析結果を表示（ModTools用）
+        /// </summary>
+        public static void PrintBuildingAnalysisResults()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Printing Building RenderInstance analysis results...");
+                CS1Profiler.Harmony.BuildingRenderAnalysisHooks.PrintResults();
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to print building analysis results: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Building分析カウンターをリセット（ModTools用）
+        /// </summary>
+        public static void ResetBuildingAnalysisCounters()
+        {
+            try
+            {
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Resetting Building RenderInstance analysis counters...");
+                CS1Profiler.Harmony.BuildingRenderAnalysisHooks.ResetCounters();
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis counters reset successfully");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to reset building analysis counters: {e.Message}");
+            }
+        }
+
         // IUserMod必須プロパティ
         public string Name 
         { 
@@ -180,7 +277,7 @@ namespace CS1Profiler
                         UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Manual CSV export triggered");
                     }
                 }
-                // 他のキーは削除（ショートカット不要）
+                // Building分析用のキーボードショートカットは削除
             }
             
             // PerformancePanelを直接描画

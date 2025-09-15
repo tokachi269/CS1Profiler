@@ -5,6 +5,9 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using CS1Profiler.Core;
+using System.Diagnostics;
+using System.Text;
+using ColossalFramework;
 
 namespace CS1Profiler.Harmony
 {
@@ -616,6 +619,552 @@ namespace CS1Profiler.Harmony
                 UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable GameSettings optimization patches: {e.Message}");
                 throw;
             }
+        }
+    }
+
+    /// <summary>
+    /// Building RenderInstance分析パッチプロバイダー
+    /// EndRenderingImpl完全置換によるRenderInstance呼び出し分析
+    /// </summary>
+    public class BuildingRenderAnalysisPatchProvider : IPatchProvider
+    {
+        public string Name => "BuildingRenderAnalysis";
+        public bool DefaultEnabled => false; // デフォルトOFF（手動で有効化）
+        public bool IsEnabled { get; private set; } = false;
+
+        public void Enable(HarmonyLib.Harmony harmony)
+        {
+            if (IsEnabled) return;
+
+            try
+            {
+                BuildingRenderAnalysisPatcher.ApplyPatches(harmony);
+                IsEnabled = true;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building render analysis patches applied");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply building render analysis patches: {e.Message}");
+                throw;
+            }
+        }
+
+        public void Disable(HarmonyLib.Harmony harmony)
+        {
+            if (!IsEnabled) return;
+
+            try
+            {
+                BuildingRenderAnalysisPatcher.RemovePatches(harmony);
+                IsEnabled = false;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building render analysis patches removed");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove building render analysis patches: {e.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Building.RenderInstance詳細分析パッチプロバイダー
+    /// 各処理段階の時間を細分化して測定
+    /// </summary>
+    public class BuildingRenderInstanceDetailPatchProvider : IPatchProvider
+    {
+        public string Name => "BuildingRenderInstanceDetail";
+        public bool DefaultEnabled => false;
+        public bool IsEnabled { get; private set; } = false;
+
+        public void Enable(HarmonyLib.Harmony harmony)
+        {
+            if (IsEnabled) return;
+
+            try
+            {
+                BuildingRenderInstanceDetailPatcher.ApplyPatches(harmony);
+                BuildingRenderInstanceDetailHooks.Enable();
+                IsEnabled = true;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building.RenderInstance detail analysis patches applied");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply Building.RenderInstance detail analysis patches: {e.Message}");
+                throw;
+            }
+        }
+
+        public void Disable(HarmonyLib.Harmony harmony)
+        {
+            if (!IsEnabled) return;
+
+            try
+            {
+                BuildingRenderInstanceDetailHooks.Disable();
+                BuildingRenderInstanceDetailPatcher.RemovePatches(harmony);
+                IsEnabled = false;
+                UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building.RenderInstance detail analysis patches removed");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove Building.RenderInstance detail analysis patches: {e.Message}");
+                throw;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Building.RenderInstance詳細分析パッチ
+    /// 各処理段階の時間を細分化して測定
+    /// </summary>
+    public static class BuildingRenderInstanceDetailPatcher
+    {
+        private static bool _isPatched = false;
+        private static readonly object _patchLock = new object();
+        
+        /// <summary>
+        /// パッチ適用
+        /// </summary>
+        public static void ApplyPatches(HarmonyLib.Harmony harmony)
+        {
+            lock (_patchLock)
+            {
+                if (_isPatched) return;
+
+                try
+                {
+                    var buildingType = typeof(Building);
+                    
+                    // Public RenderInstance method
+                    var publicRenderMethod = buildingType.GetMethod("RenderInstance", 
+                        BindingFlags.Instance | BindingFlags.Public,
+                        null, 
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(int) },
+                        null);
+
+                    // Private RenderInstance method
+                    var privateRenderMethod = buildingType.GetMethod("RenderInstance", 
+                        BindingFlags.Instance | BindingFlags.NonPublic,
+                        null,
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(int), typeof(BuildingInfo), typeof(RenderManager.Instance).MakeByRefType() },
+                        null);
+
+                    if (publicRenderMethod != null)
+                    {
+                        var publicPrefix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "PublicRenderInstance_Prefix");
+                        var publicPostfix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "PublicRenderInstance_Postfix");
+                        
+                        harmony.Patch(publicRenderMethod, prefix: publicPrefix, postfix: publicPostfix);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patch applied to public Building.RenderInstance");
+                    }
+
+                    if (privateRenderMethod != null)
+                    {
+                        var privatePrefix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "PrivateRenderInstance_Prefix");
+                        var privatePostfix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "PrivateRenderInstance_Postfix");
+                        
+                        harmony.Patch(privateRenderMethod, prefix: privatePrefix, postfix: privatePostfix);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patch applied to private Building.RenderInstance");
+                    }
+
+                    // BuildingAI.RenderInstance method
+                    var buildingAIType = typeof(BuildingAI);
+                    var aiRenderMethod = buildingAIType.GetMethod("RenderInstance",
+                        BindingFlags.Instance | BindingFlags.Public);
+
+                    if (aiRenderMethod != null)
+                    {
+                        var aiPrefix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderInstance_Prefix");
+                        var aiPostfix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderInstance_Postfix");
+                        
+                        harmony.Patch(aiRenderMethod, prefix: aiPrefix, postfix: aiPostfix);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patch applied to BuildingAI.RenderInstance");
+                    }
+
+                    // BuildingAI.RenderMeshes method
+                    var renderMeshesMethod = buildingAIType.GetMethod("RenderMeshes",
+                        BindingFlags.Instance | BindingFlags.Public);
+
+                    if (renderMeshesMethod != null)
+                    {
+                        var meshesPrefix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderMeshes_Prefix");
+                        var meshesPostfix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderMeshes_Postfix");
+                        
+                        harmony.Patch(renderMeshesMethod, prefix: meshesPrefix, postfix: meshesPostfix);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patch applied to BuildingAI.RenderMeshes");
+                    }
+
+                    // BuildingAI.RenderProps method (public version)
+                    var renderPropsMethod = buildingAIType.GetMethod("RenderProps",
+                        BindingFlags.Instance | BindingFlags.Public,
+                        null,
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(Building).MakeByRefType(), typeof(int), typeof(RenderManager.Instance).MakeByRefType(), typeof(bool), typeof(bool) },
+                        null);
+
+                    if (renderPropsMethod != null)
+                    {
+                        var propsPrefix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderProps_Prefix");
+                        var propsPostfix = new HarmonyMethod(typeof(BuildingRenderInstanceDetailHooks), "BuildingAI_RenderProps_Postfix");
+                        
+                        harmony.Patch(renderPropsMethod, prefix: propsPrefix, postfix: propsPostfix);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patch applied to BuildingAI.RenderProps");
+                    }
+
+                    _isPatched = true;
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to apply BuildingRenderInstanceDetail patches: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// パッチ除去
+        /// </summary>
+        public static void RemovePatches(HarmonyLib.Harmony harmony)
+        {
+            lock (_patchLock)
+            {
+                if (!_isPatched) return;
+
+                try
+                {
+                    var buildingType = typeof(Building);
+                    
+                    var publicRenderMethod = buildingType.GetMethod("RenderInstance", 
+                        BindingFlags.Instance | BindingFlags.Public,
+                        null, 
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(int) },
+                        null);
+
+                    var privateRenderMethod = buildingType.GetMethod("RenderInstance", 
+                        BindingFlags.Instance | BindingFlags.NonPublic,
+                        null,
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(int), typeof(BuildingInfo), typeof(RenderManager.Instance).MakeByRefType() },
+                        null);
+
+                    var buildingAIType = typeof(BuildingAI);
+                    var aiRenderMethod = buildingAIType.GetMethod("RenderInstance",
+                        BindingFlags.Instance | BindingFlags.Public);
+
+                    var renderMeshesMethod = buildingAIType.GetMethod("RenderMeshes",
+                        BindingFlags.Instance | BindingFlags.Public);
+
+                    var renderPropsMethod = buildingAIType.GetMethod("RenderProps",
+                        BindingFlags.Instance | BindingFlags.Public,
+                        null,
+                        new Type[] { typeof(RenderManager.CameraInfo), typeof(ushort), typeof(Building).MakeByRefType(), typeof(int), typeof(RenderManager.Instance).MakeByRefType(), typeof(bool), typeof(bool) },
+                        null);
+
+                    if (publicRenderMethod != null)
+                        harmony.Unpatch(publicRenderMethod, HarmonyPatchType.All, Constants.HARMONY_ID);
+                    
+                    if (privateRenderMethod != null)
+                        harmony.Unpatch(privateRenderMethod, HarmonyPatchType.All, Constants.HARMONY_ID);
+                    
+                    if (aiRenderMethod != null)
+                        harmony.Unpatch(aiRenderMethod, HarmonyPatchType.All, Constants.HARMONY_ID);
+
+                    if (renderMeshesMethod != null)
+                        harmony.Unpatch(renderMeshesMethod, HarmonyPatchType.All, Constants.HARMONY_ID);
+
+                    if (renderPropsMethod != null)
+                        harmony.Unpatch(renderPropsMethod, HarmonyPatchType.All, Constants.HARMONY_ID);
+
+                    _isPatched = false;
+                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} BuildingRenderInstanceDetail patches removed");
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to remove BuildingRenderInstanceDetail patches: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Building.RenderInstance詳細分析フック
+    /// </summary>
+    public static class BuildingRenderInstanceDetailHooks
+    {
+        private static bool _isEnabled = false;
+        private static readonly object _statsLock = new object();
+        private static readonly Dictionary<ushort, BuildingRenderStats> _buildingStats = new Dictionary<ushort, BuildingRenderStats>();
+        private static readonly Dictionary<string, PhaseStats> _phaseStats = new Dictionary<string, PhaseStats>();
+        
+        private static DateTime _lastOutput = DateTime.Now;
+        private static readonly TimeSpan OUTPUT_INTERVAL = TimeSpan.FromSeconds(30);
+        
+        // ThreadLocal for timing data
+        [ThreadStatic]
+        private static Stopwatch _currentTimer;
+        [ThreadStatic]
+        private static string _currentPhase;
+        [ThreadStatic]
+        private static ushort _currentBuildingID;
+
+        public static void Enable() => _isEnabled = true;
+        public static void Disable() => _isEnabled = false;
+
+        #region Public RenderInstance Hooks
+
+        public static void PublicRenderInstance_Prefix(ref Building __instance, ushort buildingID, int layerMask)
+        {
+            if (!_isEnabled) return;
+
+            _currentTimer = Stopwatch.StartNew();
+            _currentPhase = "PublicRenderInstance";
+            _currentBuildingID = buildingID;
+        }
+
+        public static void PublicRenderInstance_Postfix(ref Building __instance, ushort buildingID, int layerMask)
+        {
+            if (!_isEnabled || _currentTimer == null) return;
+
+            _currentTimer.Stop();
+            RecordPhaseTime(_currentPhase, _currentTimer.ElapsedTicks);
+            RecordBuildingCall(buildingID, _currentPhase, _currentTimer.ElapsedTicks);
+        }
+
+        #endregion
+
+        #region Private RenderInstance Hooks
+
+        public static void PrivateRenderInstance_Prefix(ref Building __instance, ushort buildingID, int layerMask, BuildingInfo info, ref RenderManager.Instance data)
+        {
+            if (!_isEnabled) return;
+
+            _currentTimer = Stopwatch.StartNew();
+            _currentPhase = "PrivateRenderInstance";
+            _currentBuildingID = buildingID;
+        }
+
+        public static void PrivateRenderInstance_Postfix(ref Building __instance, ushort buildingID, int layerMask, BuildingInfo info, ref RenderManager.Instance data)
+        {
+            if (!_isEnabled || _currentTimer == null) return;
+
+            _currentTimer.Stop();
+            RecordPhaseTime(_currentPhase, _currentTimer.ElapsedTicks);
+            RecordBuildingCall(buildingID, _currentPhase, _currentTimer.ElapsedTicks);
+        }
+
+        #endregion
+
+        #region BuildingAI.RenderInstance Hooks
+
+        public static void BuildingAI_RenderInstance_Prefix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance)
+        {
+            if (!_isEnabled) return;
+
+            _currentTimer = Stopwatch.StartNew();
+            _currentPhase = $"BuildingAI_{__instance.GetType().Name}";
+            _currentBuildingID = buildingID;
+        }
+
+        public static void BuildingAI_RenderInstance_Postfix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance)
+        {
+            if (!_isEnabled || _currentTimer == null) return;
+
+            _currentTimer.Stop();
+            RecordPhaseTime(_currentPhase, _currentTimer.ElapsedTicks);
+            RecordBuildingCall(buildingID, _currentPhase, _currentTimer.ElapsedTicks);
+
+            // 定期的な統計出力
+            CheckOutputStats();
+        }
+
+        #endregion
+
+        #region BuildingAI.RenderMeshes Hooks
+
+        public static void BuildingAI_RenderMeshes_Prefix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance)
+        {
+            if (!_isEnabled) return;
+
+            _currentTimer = Stopwatch.StartNew();
+            _currentPhase = $"RenderMeshes_{__instance.GetType().Name}";
+            _currentBuildingID = buildingID;
+        }
+
+        public static void BuildingAI_RenderMeshes_Postfix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance)
+        {
+            if (!_isEnabled || _currentTimer == null) return;
+
+            _currentTimer.Stop();
+            RecordPhaseTime(_currentPhase, _currentTimer.ElapsedTicks);
+            RecordBuildingCall(buildingID, _currentPhase, _currentTimer.ElapsedTicks);
+        }
+
+        #endregion
+
+        #region BuildingAI.RenderProps Hooks
+
+        public static void BuildingAI_RenderProps_Prefix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance, bool renderFixed, bool renderNonfixed)
+        {
+            if (!_isEnabled) return;
+
+            _currentTimer = Stopwatch.StartNew();
+            _currentPhase = $"RenderProps_{__instance.GetType().Name}";
+            _currentBuildingID = buildingID;
+        }
+
+        public static void BuildingAI_RenderProps_Postfix(BuildingAI __instance, ushort buildingID, ref Building data, int layerMask, ref RenderManager.Instance instance, bool renderFixed, bool renderNonfixed)
+        {
+            if (!_isEnabled || _currentTimer == null) return;
+
+            _currentTimer.Stop();
+            RecordPhaseTime(_currentPhase, _currentTimer.ElapsedTicks);
+            RecordBuildingCall(buildingID, _currentPhase, _currentTimer.ElapsedTicks);
+        }
+
+        #endregion
+
+        #region Statistics
+
+        private static void RecordPhaseTime(string phase, long ticks)
+        {
+            lock (_statsLock)
+            {
+                if (!_phaseStats.ContainsKey(phase))
+                {
+                    _phaseStats[phase] = new PhaseStats();
+                }
+                _phaseStats[phase].AddCall(ticks);
+            }
+        }
+
+        private static void RecordBuildingCall(ushort buildingID, string phase, long ticks)
+        {
+            lock (_statsLock)
+            {
+                if (!_buildingStats.ContainsKey(buildingID))
+                {
+                    _buildingStats[buildingID] = new BuildingRenderStats();
+                }
+                _buildingStats[buildingID].AddCall(phase, ticks);
+            }
+        }
+
+        private static void CheckOutputStats()
+        {
+            if (DateTime.Now - _lastOutput > OUTPUT_INTERVAL)
+            {
+                OutputDetailedStats();
+                _lastOutput = DateTime.Now;
+            }
+        }
+
+        public static void OutputDetailedStats()
+        {
+            if (!_isEnabled) return;
+
+            var sb = new StringBuilder();
+            sb.AppendLine("=== Building.RenderInstance Detailed Analysis ===");
+
+            lock (_statsLock)
+            {
+                // Phase統計
+                sb.AppendLine("\n--- Phase Performance Analysis ---");
+                foreach (var kvp in _phaseStats.OrderByDescending(x => x.Value.TotalTime))
+                {
+                    var stats = kvp.Value;
+                    sb.AppendLine($"{kvp.Key}: {stats.CallCount} calls, Avg: {stats.AverageTimeMs:F3}ms, Total: {stats.TotalTimeMs:F1}ms");
+                }
+
+                // 重い建物TOP20
+                sb.AppendLine("\n--- Top 20 Heavy Buildings ---");
+                var heavyBuildings = _buildingStats
+                    .OrderByDescending(x => x.Value.TotalTime)
+                    .Take(20);
+
+                foreach (var kvp in heavyBuildings)
+                {
+                    var buildingID = kvp.Key;
+                    var stats = kvp.Value;
+                    var building = Singleton<BuildingManager>.instance.m_buildings.m_buffer[buildingID];
+                    var buildingName = building.Info?.name ?? "Unknown";
+
+                    sb.AppendLine($"Building {buildingID} ({buildingName}): {stats.CallCount} calls, Total: {stats.TotalTimeMs:F1}ms, Avg: {stats.AverageTimeMs:F3}ms");
+                    
+                    foreach (var phaseKvp in stats.PhaseStats.OrderByDescending(x => x.Value.TotalTime))
+                    {
+                        var phaseStats = phaseKvp.Value;
+                        sb.AppendLine($"  {phaseKvp.Key}: {phaseStats.CallCount} calls, Avg: {phaseStats.AverageTimeMs:F3}ms");
+                    }
+                }
+
+                // 建物タイプ別統計
+                sb.AppendLine("\n--- Building Type Performance ---");
+                var typeStats = new Dictionary<string, PhaseStats>();
+                
+                foreach (var kvp in _buildingStats)
+                {
+                    var buildingID = kvp.Key;
+                    var building = Singleton<BuildingManager>.instance.m_buildings.m_buffer[buildingID];
+                    var buildingType = building.Info?.GetAI()?.GetType().Name ?? "Unknown";
+                    
+                    if (!typeStats.ContainsKey(buildingType))
+                    {
+                        typeStats[buildingType] = new PhaseStats();
+                    }
+                    
+                    typeStats[buildingType].AddCall(kvp.Value.TotalTime);
+                }
+
+                foreach (var kvp in typeStats.OrderByDescending(x => x.Value.TotalTime))
+                {
+                    var stats = kvp.Value;
+                    sb.AppendLine($"{kvp.Key}: {stats.CallCount} buildings, Total: {stats.TotalTimeMs:F1}ms, Avg: {stats.AverageTimeMs:F3}ms");
+                }
+
+                // 統計リセット
+                _phaseStats.Clear();
+                _buildingStats.Clear();
+            }
+
+            UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} {sb}");
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// 処理段階統計
+    /// </summary>
+    public class PhaseStats
+    {
+        public int CallCount { get; private set; }
+        public long TotalTime { get; private set; }
+        public double TotalTimeMs => TotalTime * 1000.0 / Stopwatch.Frequency;
+        public double AverageTimeMs => CallCount > 0 ? TotalTimeMs / CallCount : 0;
+
+        public void AddCall(long ticks)
+        {
+            CallCount++;
+            TotalTime += ticks;
+        }
+    }
+
+    /// <summary>
+    /// 建物別レンダリング統計
+    /// </summary>
+    public class BuildingRenderStats
+    {
+        public Dictionary<string, PhaseStats> PhaseStats { get; } = new Dictionary<string, PhaseStats>();
+        public int CallCount => PhaseStats.Values.Sum(x => x.CallCount);
+        public long TotalTime => PhaseStats.Values.Sum(x => x.TotalTime);
+        public double TotalTimeMs => TotalTime * 1000.0 / Stopwatch.Frequency;
+        public double AverageTimeMs => CallCount > 0 ? TotalTimeMs / CallCount : 0;
+
+        public void AddCall(string phase, long ticks)
+        {
+            if (!PhaseStats.ContainsKey(phase))
+            {
+                PhaseStats[phase] = new PhaseStats();
+            }
+            PhaseStats[phase].AddCall(ticks);
         }
     }
 }

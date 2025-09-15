@@ -81,19 +81,36 @@ analysis_output/
 
 ### よくある最適化パターン
 
+#### 🏢 Building.RenderInstance パフォーマンス分析結果
+詳細分析により、Building rendering の内部構造が判明：
+
+**RenderProps vs RenderMeshes 実測データ**
+- **RenderProps**: 2,719ms (80%以上の処理時間)
+- **RenderMeshes**: 209ms (残り20%未満)
+- **PropInstance.RenderInstance**: 個別の `Graphics.DrawMesh` 呼び出しによる GPU 同期オーバーヘッドが主因
+
+**技術的詳細**
+- Building rendering の大部分は建物本体ではなく**Prop（小物）**のレンダリング
+- `PropInstance.RenderInstance`で個別の`MaterialPropertyBlock`更新が発生
+- CPU-GPU同期待機が性能ボトルネックの根本原因
+- バッチング最適化により大幅な性能向上の可能性
+
 #### 🚨 高負荷メソッドが検出された場合
 - **SimulationManager系**: ゲーム速度設定を下げる、都市規模を調整
 - **MODメソッド（FpsBooster等）**: 該当MODの設定見直し、無効化検討
 - **AI関係**: 人口・交通量の調整
+- **Building.RenderInstance**: PropInstance個別描画が原因の場合、Prop密度調整やLOD設定見直し
 
 #### 📈 スパイクが多発している場合
 - **ガベージコレクション**: メモリ消費の多いアセットを削減
 - **ディスクI/O**: SSD使用、アセットファイルの最適化
 - **MOD競合**: 類似機能のMODを統合
+- **PropInstance描画**: GPU同期待機によるスパイクの場合、描画距離制限や可視性判定最適化
 
 #### 🔄 呼び出し回数が異常な場合
 - **無限ループ**: 該当MODのバグ可能性、無効化して確認
 - **イベント重複**: MOD間の競合、設定の見直し
+- **PropInstance多重描画**: 建物密集地での過剰なProp描画呼び出し
 
 ## 🔧 技術的詳細
 

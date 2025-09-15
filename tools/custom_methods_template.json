@@ -1,0 +1,10 @@
+{
+  "name": "カスタム分析",
+  "description": "カスタムメソッドリストによる分析",
+  "methods": [
+    "Example.Method1",
+    "Example.Method2",
+    "Pattern.*",
+    "AnotherPattern"
+  ]
+}

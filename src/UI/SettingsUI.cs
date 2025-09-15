@@ -243,6 +243,312 @@ namespace CS1Profiler.UI
                     }
                 }, "tooltip.export_all_settings");
                 
+                // 【一時的】Building分析用のテストボタン（後で削除予定）
+                var buildingAnalysisGroup = helper.AddGroup("Building Analysis (Temporary)");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "🏢 Enable Building Analysis Patch", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling Building RenderInstance analysis patch...");
+                        CS1Profiler.Harmony.PatchController.BuildingRenderAnalysisEnabled = true;
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis patch enabled successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable building analysis patch: {e.Message}");
+                    }
+                }, "Enable building analysis patch");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "▶️ Start Building Analysis", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Starting Building RenderInstance analysis...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StartAnalysis();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis started successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start building analysis: {e.Message}");
+                    }
+                }, "Start building render analysis");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "📊 Show Analysis Results", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Printing Building RenderInstance analysis results...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.PrintResults();
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to print building analysis results: {e.Message}");
+                    }
+                }, "Show building analysis results");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "⏹️ Stop Building Analysis", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Stopping Building RenderInstance analysis...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StopAnalysis();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis stopped successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to stop building analysis: {e.Message}");
+                    }
+                }, "Stop building analysis");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "🔄 Reset Counters", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Resetting Building RenderInstance analysis counters...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.ResetCounters();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis counters reset successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to reset building analysis counters: {e.Message}");
+                    }
+                }, "Reset building analysis counters");
+                
+                CreateButtonWithTooltip(buildingAnalysisGroup, "🏢 Disable Building Analysis Patch", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling Building RenderInstance analysis patch...");
+                        CS1Profiler.Harmony.PatchController.BuildingRenderAnalysisEnabled = false;
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Building analysis patch disabled successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable building analysis patch: {e.Message}");
+                    }
+                }, "Disable building analysis patch");
+
+                // Propバッチング検証用のテストボタン
+                var propBatchingGroup = helper.AddGroup("Prop Batching Test (Performance)");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "📦 Enable LOD Batching", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling prop LOD batching...");
+                        PropBatchingTestManager.SetPropBatching(true);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Prop LOD batching enabled successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable prop batching: {e.Message}");
+                    }
+                }, "Enable prop LOD batching for performance testing");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🔍 Enable High-Detail Batching", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling prop high-detail batching...");
+                        PropBatchingTestManager.SetPropBatching(true, true);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Prop high-detail batching enabled successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable high-detail prop batching: {e.Message}");
+                    }
+                }, "Enable high-detail prop batching (experimental)");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🚫 Disable All Batching", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling all prop batching...");
+                        PropBatchingTestManager.SetPropBatching(false);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Prop batching disabled successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable prop batching: {e.Message}");
+                    }
+                }, "Disable all prop batching");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🔄 Restore Original State", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Restoring original prop batching state...");
+                        PropBatchingTestManager.RestoreOriginalBatching();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Original prop batching state restored successfully");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to restore prop batching state: {e.Message}");
+                    }
+                }, "Restore original prop batching configuration");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "📊 Show Batching Status", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Showing prop batching status...");
+                        string status = $"Batching enabled: {PropBatchingTestManager.IsBatchingEnabled}, " +
+                                      $"Override active: {PropBatchingTestManager.IsOverrideActive}, " +
+                                      $"High-detail enabled: {PropBatchingTestManager.IsHighDetailBatchingEnabled}";
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Prop batching status: {status}");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to show prop batching status: {e.Message}");
+                    }
+                }, "Show current prop batching status");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🔍 Analyze Batching Details", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Analyzing detailed prop batching state...");
+                        PropBatchingTestManager.AnalyzeBatchingState();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Batching analysis completed");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to analyze batching state: {e.Message}");
+                    }
+                }, "Analyze detailed prop batching statistics");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🚀 Start Performance Benchmark", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Starting performance benchmark...");
+                        PropBatchingTestManager.StartPerformanceBenchmark();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance benchmark started");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start performance benchmark: {e.Message}");
+                    }
+                }, "Start frame-by-frame performance measurement");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "⏹️ Stop Performance Benchmark", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Stopping performance benchmark...");
+                        PropBatchingTestManager.StopPerformanceBenchmark();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance benchmark stopped");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to stop performance benchmark: {e.Message}");
+                    }
+                }, "Stop performance measurement and show results");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "⚡ Enable Performance Optimization", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling performance optimization...");
+                        PropBatchingTestManager.OptimizeRenderDistances(true);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance optimization enabled");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable performance optimization: {e.Message}");
+                    }
+                }, "Enable aggressive performance optimization (LOD distance reduction + batching)");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "🔧 Disable Performance Optimization", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Disabling performance optimization...");
+                        PropBatchingTestManager.OptimizeRenderDistances(false);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Performance optimization disabled");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to disable performance optimization: {e.Message}");
+                    }
+                }, "Disable performance optimization and restore original settings");
+                
+                CreateButtonWithTooltip(propBatchingGroup, "💥 Enable Aggressive Optimization", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Enabling aggressive optimization...");
+                        PropBatchingTestManager.OptimizeAggressiveCulling(true);
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Aggressive optimization enabled - WARNING: Visual quality reduced!");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to enable aggressive optimization: {e.Message}");
+                    }
+                }, "Enable maximum performance optimization (major visual quality reduction)");
+
+                // フレーム詳細記録機能
+                CreateButtonWithTooltip(buildingAnalysisGroup, "🎬 Start Frame Recording", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Starting frame detail recording...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StartFrameDetailRecording();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Frame detail recording started - recording next 10 frames");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start frame recording: {e.Message}");
+                    }
+                }, "Start recording detailed frame-by-frame data");
+
+                CreateButtonWithTooltip(buildingAnalysisGroup, "⏹️ Stop Frame Recording", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Stopping frame detail recording...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.StopFrameDetailRecording();
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Frame detail recording stopped");
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to stop frame recording: {e.Message}");
+                    }
+                }, "Stop frame detail recording");
+
+                CreateButtonWithTooltip(buildingAnalysisGroup, "📋 Show Frame Details", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Showing frame detail analysis...");
+                        CS1Profiler.Harmony.BuildingRenderAnalysisHooks.PrintFrameDetails();
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to show frame details: {e.Message}");
+                    }
+                }, "Show detailed frame-by-frame analysis");
+                
+                // Building.RenderInstance詳細分析グループ
+                var renderInstanceDetailGroup = helper.AddGroup("Building.RenderInstance Detail Analysis");
+                
+                CreateButtonWithTooltip(renderInstanceDetailGroup, "🔍 Start Detail Analysis", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Starting Building.RenderInstance detail analysis...");
+                        CS1Profiler.Harmony.PatchController.BuildingRenderInstanceDetailEnabled = true;
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start detail analysis: {e.Message}");
+                    }
+                }, "Start detailed analysis of Building.RenderInstance stages");
+
+                CreateButtonWithTooltip(renderInstanceDetailGroup, "📊 Show Detail Stats", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Showing Building.RenderInstance detail stats...");
+                        CS1Profiler.Harmony.BuildingRenderInstanceDetailHooks.OutputDetailedStats();
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to show detail stats: {e.Message}");
+                    }
+                }, "Show detailed statistics for each RenderInstance stage");
+
+                CreateButtonWithTooltip(renderInstanceDetailGroup, "🛑 Stop Detail Analysis", () => {
+                    try
+                    {
+                        UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Stopping Building.RenderInstance detail analysis...");
+                        CS1Profiler.Harmony.PatchController.BuildingRenderInstanceDetailEnabled = false;
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to stop detail analysis: {e.Message}");
+                    }
+                }, "Stop detailed analysis of Building.RenderInstance");
+                
                 // システム情報
                 analysisGroup.AddSpace(10);
                 analysisGroup.AddTextfield("MOD Version:", "1.0.0", null);

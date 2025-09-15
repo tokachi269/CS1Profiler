@@ -3,9 +3,25 @@
 ## 概要
 `RenderManagerOptimization`は、Cities: SkylinesのRenderManager.LateUpdate()系メソッドの性能分析と最適化を行うクラスです。
 
+## 🔍 Building.RenderInstance 性能分析発見事項
+
+### PropInstance個別描画ボトルネック（実測データ）
+詳細分析により、RenderManager性能問題の根本原因が判明：
+
+**Building.RenderInstance内部構造（5段階測定結果）**:
+- **RenderMeshes**: 209ms (建物本体メッシュ描画)
+- **RenderProps**: 2,719ms (**80%以上**の処理時間を占有)
+
+**技術的詳細**:
+- `PropInstance.RenderInstance`で個別`Graphics.DrawMesh`呼び出し
+- 各PropInstance毎の`MaterialPropertyBlock`更新
+- CPU-GPU同期待機による性能劣化
+- **最適化対象**: PropInstance batching implementation
+
 ## 目的
-- RenderManager.LateUpdate()の実行時間測定
+- RenderManager.LateUpdate()の実行時間測定  
 - FPS Booster MODとバニラゲーム両方への対応
+- **PropInstance最適化**: 個別描画→バッチング変換の基盤提供
 - 将来的な最適化パッチの基盤提供
 
 ## 対象メソッド

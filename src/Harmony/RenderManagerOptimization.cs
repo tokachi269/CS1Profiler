@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
 using CS1Profiler.Core;
+using ColossalFramework;
 
 namespace CS1Profiler.Harmony
 {
@@ -480,42 +481,41 @@ namespace CS1Profiler.Harmony
                 }
                 
                 // 6. Singleton<InfoManager>.instance.UpdateInfoMode();
-                if (_infoManagerInstanceProperty != null && _updateInfoModeMethod != null)
+                try
                 {
-                    try
+                    if (Singleton<InfoManager>.exists && Singleton<InfoManager>.instance != null)
                     {
-                        var infoManagerInstance = _infoManagerInstanceProperty.GetValue(null, null);
-                        if (infoManagerInstance != null)
-                        {
-                            _updateInfoModeMethod.Invoke(infoManagerInstance, null);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} InfoManager.UpdateInfoMode() failed: {e.Message}");
+                        Singleton<InfoManager>.instance.UpdateInfoMode();
                     }
                 }
-                
-                // 7. if (!Singleton<LoadingManager>.instance.m_loadingComplete) return;
-                if (_loadingManagerInstanceProperty != null && _loadingCompleteField != null)
+                catch (Exception e)
                 {
-                    try
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} InfoManager.UpdateInfoMode() failed: {e.Message}");
+                }
+                
+                // 7. 【重要】if (!Singleton<LoadingManager>.instance.m_loadingComplete) return;
+                // 元のRenderManager.csの実装と同じ順序でチェック
+                try
+                {
+                    // LoadingManagerへの直接アクセスを試行
+                    if (Singleton<LoadingManager>.exists && Singleton<LoadingManager>.instance != null)
                     {
-                        var loadingManagerInstance = _loadingManagerInstanceProperty.GetValue(null, null);
-                        if (loadingManagerInstance != null)
+                        if (!Singleton<LoadingManager>.instance.m_loadingComplete)
                         {
-                            var isLoadingComplete = (bool)_loadingCompleteField.GetValue(loadingManagerInstance);
-                            if (!isLoadingComplete) 
-                            {
-                                return; // ここでロード未完了なら処理終了
-                            }
+                            // ロード未完了時は処理終了（元の実装と同じ）
+                            return;
                         }
                     }
-                    catch (Exception e)
+                    else
                     {
-                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} LoadingManager check failed: {e.Message}");
-                        return; // エラーが発生した場合も処理終了
+                        // LoadingManagerが存在しない場合は警告なしで終了
+                        return;
                     }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} LoadingManager check failed: {e.Message}");
+                    return; // エラーが発生した場合も処理終了
                 }
                 
                 // 元のソースコード: this.UpdateCameraInfo();
@@ -528,18 +528,36 @@ namespace CS1Profiler.Harmony
                     catch (Exception e)
                     {
                         UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} UpdateCameraInfo failed: {e.Message}");
-                        // エラーが発生しても処理は続行
+                        return; // カメラ情報更新に失敗したら処理終了
                     }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} UpdateCameraInfo method not found");
+                    return; // カメラ情報更新メソッドがない場合は処理終了
                 }
                 
                 // 元のソースコード: this.UpdateColorMap();
                 if (_updateColorMapMethod != null)
                 {
-                    _updateColorMapMethod.Invoke(renderManagerInstance, null);
+                    try
+                    {
+                        _updateColorMapMethod.Invoke(renderManagerInstance, null);
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} UpdateColorMap failed: {e.Message}");
+                        // ColorMap更新失敗は続行可能
+                    }
                 }
                 
-                // 元のソースコード: for (int i = 0; i < RenderManager.m_renderables.m_size; i++) { RenderManager.m_renderables.m_buffer[i].BeginRendering(this.m_cameraInfo); }
+                // カメラ情報取得（必須）
                 var cameraInfo = _cameraInfoField?.GetValue(renderManagerInstance);
+                if (cameraInfo == null)
+                {
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} cameraInfo is null - cannot continue rendering");
+                    return;
+                }
                 
                 // Get m_renderables static field
                 var renderables = _renderablesField?.GetValue(null);
@@ -564,30 +582,57 @@ namespace CS1Profiler.Harmony
                     }
                 }
                 
+                if (renderablesBuffer == null)
+                {
+                    UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} renderablesBuffer is null - skipping BeginRendering");
+                    renderablesSize = 0; // 安全のためサイズを0に設定
+                }
+                
                 try
                 {
                     // 最優先最適化：キャッシュされたメソッドを使用
-                    if (_beginRenderingMethod != null)
+                    if (_beginRenderingMethod != null && renderablesBuffer != null)
                     {
                         for (int i = 0; i < renderablesSize; i++)
                         {
-                            var renderable = renderablesBuffer.GetValue(i);
-                            if (renderable != null)
+                            try
                             {
-                                _beginRenderingMethod.Invoke(renderable, new object[] { cameraInfo });
+                                var renderable = renderablesBuffer.GetValue(i);
+                                if (renderable != null)
+                                {
+                                    _beginRenderingMethod.Invoke(renderable, new object[] { cameraInfo });
+                                }
+                            }
+                            catch (Exception e)
+                            {
+                                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} BeginRendering failed for renderable {i}: {e.Message}");
+                                // 個別エラーは続行
                             }
                         }
                     }
-                    else
+                    else if (renderablesBuffer != null)
                     {
                         // フォールバック：リフレクション（低速）
                         for (int i = 0; i < renderablesSize; i++)
                         {
-                            var renderable = renderablesBuffer.GetValue(i);
-                            var beginRenderingMethod = renderable?.GetType().GetMethod("BeginRendering");
-                            beginRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                            try
+                            {
+                                var renderable = renderablesBuffer.GetValue(i);
+                                var beginRenderingMethod = renderable?.GetType().GetMethod("BeginRendering");
+                                beginRenderingMethod?.Invoke(renderable, new object[] { cameraInfo });
+                            }
+                            catch (Exception e)
+                            {
+                                UnityEngine.Debug.LogWarning($"{Constants.LOG_PREFIX} BeginRendering fallback failed for renderable {i}: {e.Message}");
+                                // 個別エラーは続行
+                            }
                         }
                     }
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} BeginRendering loop failed: {e.Message}");
+                    // BeginRenderingに失敗してもレンダリングは続行
                 }
                 finally
                 {

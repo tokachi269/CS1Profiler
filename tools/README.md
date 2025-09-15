@@ -2,11 +2,28 @@
 
 Cities: Skylines 1のパフォーマンス解析ツール（Python版）
 
-## 📋 機能
+## � 最新の性能分析発見事項
+
+### Building.RenderInstance 詳細分析結果
+CS1Profilerによる5段階詳細測定で、レンダリング性能ボトルネックの根本原因を特定：
+
+**実測データ**:
+- **RenderMeshes**: 209ms (建物本体メッシュ描画)
+- **RenderProps**: 2,719ms (**80%以上**の処理時間を占有)
+
+**重要な発見**:
+- Building rendering の大部分は建物本体ではなく**Prop（小物）**のレンダリング
+- `PropInstance.RenderInstance`での個別`Graphics.DrawMesh`呼び出しが性能劣化の主因
+- `MaterialPropertyBlock`更新によるCPU-GPU同期待機
+- **最適化可能性**: PropInstance batching implementation による大幅な性能向上が期待
+
+## �📋 機能
 
 - **メソッド別統計**: 平均実行時間、スパイク検出、呼び出し回数分析
+- **Building詳細分析**: RenderMeshes vs RenderProps 処理時間分析
 - **フレーム別分析**: フレームごとの負荷推移とボトルネック特定
-- **カテゴリ別集計**: MOD/ゲーム機能別のパフォーマンス分類
+- **カテゴリ別集計**: MOD/ゲーム機能別のパフォーマンス分類  
+- **PropInstance最適化**: 個別描画→バッチング変換の解析基盤
 - **問題検出**: 高負荷メソッド、スパイク多発、呼び出し異常を自動検出
 - **可視化**: グラフとチャートでの視覚的分析
 - **詳細レポート**: CSV形式での詳細統計とテキストレポート
