@@ -53,48 +53,54 @@ METHOD_PRESETS = {
     
     "building": {
         "name": "Building関連メソッド",
-        "description": "Building.RenderInstanceの実装に基づく正確なメソッドリスト",
+        "description": "BuildingAI.RenderInstance の実装と直下の呼び出しチェーンに基づく Buildingだけ の統計対象メソッド",
         "methods": [
-            # Building.RenderInstance本体 (Building.cs 14-61行)
-            "Building.RenderInstance",
+            # 入口（Building本体の描画フロー）
+            "RenderManager.LateUpdate",
+            "BuildingAI.RenderInstance",
+            "BuildingAI.RenderMeshes",
+            "BuildingAI.RenderProps",
+            "BuildingAI.SetRenderParameters",
             
-            # public RenderInstance内の呼び出し (14-32行)
-            "RenderManager.RequireInstance",
+            # メッシュ描画（本体／サブメッシュ）
+            "BuildingAI.RenderMesh",
             
-            # private RenderInstance内の呼び出し (35-61行)
-            "BuildingAI.RefreshInstance",
-            "BuildingAI.RenderInstance", 
-            "Notification.RenderInstance",
+            # LOD と距離判定（Building系）
+            "Building.RenderLod",
+            "RenderManager.CameraInfo.CheckRenderDistance",
             
-            # RefreshInstance内で呼ばれるメソッド (重い処理)
+            # 地形・水面マッピング（近距離/LOD切替やマテリアル更新に必須）
             "TerrainManager.SampleDetailHeight",
             "TerrainManager.GetHeightMapping",
-            "BuildingInfo.RefreshLevelUp",
+            "TerrainManager.GetWaterMapping",
             
-            # BuildingAI具象クラス別のRefreshInstance/RenderInstance
-            "ResidentialBuildingAI.RefreshInstance",
-            "ResidentialBuildingAI.RenderInstance",
-            "CommercialBuildingAI.RefreshInstance",
-            "CommercialBuildingAI.RenderInstance",
-            "IndustrialBuildingAI.RefreshInstance", 
-            "IndustrialBuildingAI.RenderInstance",
-            "OfficeBuildingAI.RefreshInstance",
-            "OfficeBuildingAI.RenderInstance",
-            "ServiceBuildingAI.RefreshInstance",
-            "ServiceBuildingAI.RenderInstance",
-            "MonumentBuildingAI.RefreshInstance",
-            "MonumentBuildingAI.RenderInstance",
-            "PublicTransportStationAI.RefreshInstance",
-            "PublicTransportStationAI.RenderInstance",
-            "TransportStationAI.RefreshInstance",
-            "TransportStationAI.RenderInstance",
+            # Prop 描画（BuildingAI.RenderProps 内）
+            "BuildingAI.GetPropRenderID",
+            "PropInstance.RenderInstance",
+            "PropInstance.RenderLod",
             
-            # 描画関連の低レベルメソッド
+            # Tree 描画（BuildingAI.RenderProps 内）
+            "TreeInstance.RenderInstance",
+            
+            # 破壊時プロップ（瓦礫など）
+            "BuildingAI.RenderDestroyedProps",
+            
+            # GPU ドローとマテリアル更新（実ドローコール発生点）
             "Graphics.DrawMesh",
-            "MaterialPropertyBlock.SetMatrix",
-            "MaterialPropertyBlock.SetColor",
+            "MaterialPropertyBlock.Clear",
             "MaterialPropertyBlock.SetVector",
-            "MaterialPropertyBlock.SetTexture"
+            "MaterialPropertyBlock.SetColor",
+            "MaterialPropertyBlock.SetTexture",
+            
+            # Building具象AI別のRenderInstance
+            "ResidentialBuildingAI.RenderInstance",
+            "CommercialBuildingAI.RenderInstance",
+            "IndustrialBuildingAI.RenderInstance",
+            "OfficeBuildingAI.RenderInstance",
+            "ServiceBuildingAI.RenderInstance",
+            "MonumentBuildingAI.RenderInstance",
+            "PublicTransportStationAI.RenderInstance",
+            "TransportStationAI.RenderInstance"
         ]
     },
     

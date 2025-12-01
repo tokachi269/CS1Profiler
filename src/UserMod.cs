@@ -81,35 +81,6 @@ namespace CS1Profiler
         }
 
         // Building RenderInstance分析用のModTools呼び出し可能メソッド
-        // GameObject経由でのアクセス用（ModToolsで確実に動作）
-        /// <summary>
-        /// CS1ProfilerManagerを検索してBuilding分析を開始（ModTools用）
-        /// ModTools使用方法：
-        /// var go = GameObject.Find("CS1ProfilerManager");
-        /// var mod = go.GetComponent&lt;MonoBehaviour&gt;() as CS1Profiler.Mod;
-        /// CS1Profiler.Mod.StartBuildingAnalysisViaGameObject();
-        /// </summary>
-        public static void StartBuildingAnalysisViaGameObject()
-        {
-            try
-            {
-                var go = GameObject.Find(Constants.PROFILER_MANAGER_NAME);
-                if (go != null)
-                {
-                    UnityEngine.Debug.Log($"{Constants.LOG_PREFIX} Found GameObject: {go.name}, starting Building analysis...");
-                    StartBuildingAnalysis();
-                }
-                else
-                {
-                    UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} GameObject '{Constants.PROFILER_MANAGER_NAME}' not found");
-                }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"{Constants.LOG_PREFIX} Failed to start building analysis via GameObject: {e.Message}");
-            }
-        }
-
         /// <summary>
         /// Building分析を開始（ModTools用）
         /// </summary>
